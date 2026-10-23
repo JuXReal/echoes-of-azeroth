@@ -107,9 +107,15 @@ tts:
   top_p: 0.85
   speed: 1.02
   split_sentences: true
+  # Hohe Stimmlagen (weibliche Elfen etc.) klont XTTS-v2 instabiler und neigt
+  # zu Wiederholungen — unterhalb dieser Grundfrequenz (Hz) greifen
+  # konservativere Synthese-Parameter.
+  high_voice_f0_threshold_hz: 240.0
+  high_voice_temperature: 0.55
+  high_voice_speed: 0.98
 
 qa_validation:
-  whisper_model: "base"         # Options: tiny, base, small, medium, large-v3
+  whisper_model: "small"        # Options: tiny, base, small, medium, large-v3 (small empfohlen für deDE)
   whisper_device: "cuda"
   whisper_compute_type: "float16"
   max_wer_threshold: 0.15       # 15% maximum Word Error Rate / Levenshtein normalized distance

@@ -134,6 +134,30 @@ def tier1_routine_normalize(text: str) -> str:
     return out
 
 
+def normalize_punctuation(text: str) -> str:
+    """
+    Satzzeichen für XTTS-v2 glätten: "....." oder "…" lassen das Modell sonst
+    "Punkt" vorlesen oder in Wiederholungsschleifen geraten.
+    """
+    out = text.replace("…", "...")
+    out = re.sub(r"\.{4,}", "...", out)
+    # Ellipse mitten im Satz (gefolgt von Kleinbuchstabe) -> Sprechpause
+    out = re.sub(r"\.{2,}\s*(?=[a-zäöüß])", ", ", out)
+    # Restliche Punktfolgen -> ein Satzpunkt
+    out = re.sub(r"\.{2,}", ". ", out)
+    # Doppelte Ausrufe-/Fragezeichen -> einzeln
+    out = re.sub(r"!{2,}", "! ", out)
+    out = re.sub(r"\?{2,}", "? ", out)
+    # Trennzeichen, die XTTS aussprechen könnte
+    out = out.replace("·", ", ")
+    # Keine Leerzeichen vor Satzzeichen
+    out = re.sub(r"\s+([,.;:!?])", r"\1", out)
+    # Verwaiste einzelne Punkte entfernen (z. B. " . " oder ".." Reste)
+    out = re.sub(r"(?<!\w)\.(?!\w)", "", out)
+    out = re.sub(r"\s{2,}", " ", out).strip()
+    return out
+
+
 # ==============================================================================
 # STAGE 2: Regelbasiertes Scripting — Pausen & Warcraft-Phonetik
 # ==============================================================================
@@ -160,10 +184,10 @@ def apply_phonetic_lexicon(text: str, lexicon: Dict[str, str]) -> Tuple[str, Lis
     return text, applied
 
 
-def infer_emotion_and_prosody(entry: Dict) -> Dict:
+def infer_emotion_and_prosody(entry: Dict, cfg: Optional[Dict] = None) -> Dict:
     """
-    Determines emotional acting parameters (speed, temperature, pause style)
-    from the NPC's archetype, stage directions, and text semantics.
+    Ermittelt Sprechparameter (Tempo, Temperatur) aus Archetyp, Regieanweisungen
+    und Stimmhöhe des Voice-Seeds.
     """
     cues = " ".join(entry.get("stage_directions", [])).lower()
     text = entry.get("clean_de_text", "").lower()
@@ -220,23 +244,37 @@ def infer_emotion_and_prosody(entry: Dict) -> Dict:
             "acting_note": "Rau, direkt, kampferprobter Amani-Kriegsanführer.",
         }
 
+    # Hohe Stimmlagen klont XTTS-v2 instabiler (z. B. Alleria/Vereesa):
+    # konservativere Parameter für stabilere, wiederholungsärmere Synthese.
+    tts_cfg = (cfg or {}).get("tts", {})
+    try:
+        threshold = float(tts_cfg.get("high_voice_f0_threshold_hz", 240.0))
+    except (TypeError, ValueError):
+        threshold = 240.0
+    f0 = entry.get("seed_mean_f0_hz")
+    if f0 and float(f0) > threshold:
+        prosody["tts_temperature"] = min(
+            prosody.get("tts_temperature", 0.62),
+            float(tts_cfg.get("high_voice_temperature", 0.55)),
+        )
+        prosody["tts_speed"] = float(tts_cfg.get("high_voice_speed", 0.98))
+        prosody["high_voice"] = True
+        prosody["acting_note"] = (prosody.get("acting_note", "") + " Hohe Stimmlage: stabilere Synthese.").strip()
+
     return prosody
 
 
-def stage2_frontier_dramaturgy(text_tier1: str, entry: Dict, lexicon: Dict[str, str]) -> Tuple[str, str, List[str], Dict]:
+def stage2_frontier_dramaturgy(text_tier1: str, entry: Dict, lexicon: Dict[str, str], cfg: Optional[Dict] = None) -> Tuple[str, str, List[str], Dict]:
     """
     Stufe 2 (regelbasiertes Scripting):
-    1. Produces `qa_reference_text`: Clean German text with standard punctuation for
-       accurate Whisper WER comparison (plus phonetic proper nouns).
-    2. Erzeugt `tts_script_text`: für Coqui XTTS-v2 optimierter Text
-       in German — clean sentence boundaries (each sentence <= 180 chars so XTTS never
-       hits its 250-char token cap), natural breathing pauses via commas/periods,
-       and phonetic Warcraft proper nouns.
+    1. Erzeugt `qa_reference_text`: sauberer deutscher Text mit Standard-
+       Satzzeichen für den Whisper-WER-Vergleich (inkl. phonetischer Namen).
+    2. Erzeugt `tts_script_text`: für Coqui XTTS-v2 optimierter Text —
+       saubere Satzgrenzen (je Satz <= 180 Zeichen wegen des Token-Limits),
+       natürliche Atempausen via Kommas/Punkte, phonetische Warcraft-Namen.
     """
-    # Mid-sentence ellipses ("Ich... freue mich") become a natural comma pause,
-    # while end-of-clause ellipses ("zu finden...") become a period.
-    staged = re.sub(r"\.{2,}\s*(?=[a-zäöüß])", ", ", text_tier1)
-    staged = re.sub(r"\.{2,}", ". ", staged)
+    # Satzzeichen glätten ("....." / "…" lassen XTTS sonst "Punkt" vorlesen)
+    staged = normalize_punctuation(text_tier1)
 
     # Apply Warcraft phonetic lexicon
     phonetic_text, applied_phonetics = apply_phonetic_lexicon(staged, lexicon)
@@ -264,7 +302,7 @@ def stage2_frontier_dramaturgy(text_tier1: str, entry: Dict, lexicon: Dict[str, 
     tts_script = " ".join(refined_sentences)
     tts_script = re.sub(r"\s+", " ", tts_script).strip()
 
-    prosody = infer_emotion_and_prosody(entry)
+    prosody = infer_emotion_and_prosody(entry, cfg)
     return tts_script, phonetic_text, applied_phonetics, prosody
 
 
@@ -341,7 +379,7 @@ def main():
         tier1_text = tier1_routine_normalize(raw_clean)
 
         # Stufe 2: Pausen, Satzgrenzen, Warcraft-Phonetik, Prosodie
-        tts_script, qa_target, phonetics, prosody = stage2_frontier_dramaturgy(tier1_text, e, lexicon)
+        tts_script, qa_target, phonetics, prosody = stage2_frontier_dramaturgy(tier1_text, e, lexicon, cfg)
 
         e["tier1_normalized_text"] = tier1_text
         e["tts_script_text"] = tts_script

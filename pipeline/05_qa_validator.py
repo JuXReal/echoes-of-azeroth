@@ -111,6 +111,23 @@ def normalize_for_comparison(text: str) -> str:
         "düsterbrunnen": "düsterbrunnen",
         "käpten": "käptn",
         "käpt'n": "käptn",
+        "lotraksion": "lothraxion",
+        "lotraxion": "lothraxion",
+        "lothraksion": "lothraxion",
+        "lotrakschion": "lothraxion",
+        "windlaeufer": "windläufer",
+        "windlaufer": "windläufer",
+        "windloifer": "windläufer",
+        "katalisator": "katalysator",
+        "artifakte": "artefakte",
+        "götten": "göttin",
+        "loer": "loa",
+        "loha": "loa",
+        "kwelthalas": "quelthalas",
+        "kweldorei": "queldorei",
+        "sindorei": "sindorei",
+        "sindo rei": "sindorei",
+        "kwell dorei": "queldorei",
     }
     for k, v in fantasy_equivalents.items():
         t = t.replace(k, v)
@@ -118,6 +135,30 @@ def normalize_for_comparison(text: str) -> str:
     t = re.sub(r"[^a-zäöüß0-9\s]", " ", t)
     t = re.sub(r"\s+", " ", t).strip()
     return t
+
+
+# Whisper (v. a. das base-Modell) halluziniert in deutschen Takes gerne
+# "Punkt"/"Punk"-Füllwörter, die nie im Zieltext stehen.
+WHISPER_FILLERS = {"punkt", "punk", "punktu", "punkte", "punktst", "punks"}
+
+
+def strip_whisper_fillers(transcript_text: str, target_text: str) -> str:
+    """Entfernt halluzinierte "Punkt"-Füllwörter (auch angehängte wie
+    'katalisatorpunkt'), sofern das Grundwort im Zieltext vorkommt."""
+    target_words = set(target_text.split())
+    out = []
+    for w in transcript_text.split():
+        if w in target_words:
+            out.append(w)
+            continue
+        if w in WHISPER_FILLERS:
+            continue
+        for suffix in ("punktst", "punkts", "punkt", "punk"):
+            if w.endswith(suffix) and w[: -len(suffix)] in target_words:
+                w = w[: -len(suffix)]
+                break
+        out.append(w)
+    return " ".join(out)
 
 
 def detect_hallucinations(transcript: str, target: str) -> Tuple[bool, str]:
@@ -162,6 +203,7 @@ def evaluate_audio_with_whisper(
     norm_trans = normalize_for_comparison(transcript)
     norm_target = normalize_for_comparison(target_text)
     norm_raw = normalize_for_comparison(raw_de_text) if raw_de_text else norm_target
+    norm_trans = strip_whisper_fillers(norm_trans, norm_target)
 
     if not norm_trans:
         return {
@@ -425,6 +467,10 @@ def main():
                 base_temp = e.get("prosody", {}).get("tts_temperature", cfg["tts"]["temperature"])
                 new_temp = max(0.35, base_temp + attempt * float(qa_cfg.get("retry_temperature_step", -0.08)))
                 new_rep = float(cfg["tts"]["repetition_penalty"]) + attempt * float(qa_cfg.get("retry_repetition_penalty_step", 1.5))
+                # Hohe Stimmlagen neigen zu Wiederholungsschleifen — härter unterdrücken
+                f0 = e.get("seed_mean_f0_hz")
+                if f0 and float(f0) > float(cfg["tts"].get("high_voice_f0_threshold_hz", 240)):
+                    new_rep += 2.0
                 # On attempt >= 2, also try the canonical archetype seed WAV if line seed had acoustic artifacts
                 ref_wav = e.get("archetype_voice_wav", e["reference_voice_wav"]) if attempt >= 2 else e["reference_voice_wav"]
 

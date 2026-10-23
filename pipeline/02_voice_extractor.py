@@ -19,7 +19,7 @@ import json
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 import soundfile as sf
@@ -31,6 +31,43 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from pipeline.live_state import begin_step, finish_step, increment, update_current
 
 console = Console()
+
+_F0_CACHE: Dict[str, Optional[float]] = {}
+
+
+def estimate_mean_f0(wav_path: str) -> Optional[float]:
+    """
+    Mittlere Grundfrequenz (Hz) eines Voice-Seeds über die stimmhaften Frames.
+    Dient als Indikator für hohe Stimmlagen, die XTTS-v2 instabiler klont.
+    """
+    if wav_path in _F0_CACHE:
+        return _F0_CACHE[wav_path]
+    try:
+        import librosa
+    except ImportError:
+        return None
+    mean = None
+    try:
+        y, sr = sf.read(wav_path, dtype="float32")
+        if y.ndim > 1:
+            y = y.mean(axis=1)
+        if len(y) < int(0.5 * sr):
+            _F0_CACHE[wav_path] = None
+            return None
+        # 2-Sekunden-Fenster aus der Mitte (schnell & repräsentativ)
+        start = max(0, (len(y) - int(2 * sr)) // 2)
+        seg = y[start : start + int(2 * sr)]
+        f0, voiced, _ = librosa.pyin(
+            seg, fmin=60, fmax=500, sr=sr,
+            frame_length=2048, hop_length=256,
+        )
+        if f0 is not None:
+            v = f0[voiced]
+            mean = float(np.nanmean(v)) if len(v) else None
+    except Exception:
+        mean = None
+    _F0_CACHE[wav_path] = mean
+    return mean
 
 
 def find_best_speech_window(
@@ -306,6 +343,10 @@ def main():
         e["reference_voice_wav"] = chosen_wav
         e["reference_voice_duration_sec"] = chosen_dur
         e["archetype_voice_wav"] = arch_info["wav_path"]
+
+        seed_f0 = estimate_mean_f0(chosen_wav)
+        e["seed_mean_f0_hz"] = round(seed_f0, 1) if seed_f0 is not None else None
+
         increment(processed=1)
 
         table.add_row(

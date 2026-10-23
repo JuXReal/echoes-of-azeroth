@@ -108,11 +108,40 @@ def normalize_text(text: str) -> str:
         "quel'danas": "queldanas",
         "kwell thalas": "quelthalas",
         "quel'thalas": "quelthalas",
+        "lotraksion": "lothraxion",
+        "lotraxion": "lothraxion",
+        "windlaeufer": "windläufer",
+        "windlaufer": "windläufer",
+        "kwelthalas": "quelthalas",
+        "kweldorei": "queldorei",
+        "kwell dorei": "queldorei",
     }
     for k, v in equivalents.items():
         t = t.replace(k, v)
     t = re.sub(r"[^a-zäöüß0-9\s]", " ", t)
     return re.sub(r"\s+", " ", t).strip()
+
+
+WHISPER_FILLERS = {"punkt", "punk", "punktu", "punkte", "punktst", "punks"}
+
+
+def strip_whisper_fillers(transcript_text: str, target_text: str) -> str:
+    """Entfernt halluzinierte "Punkt"-Füllwörter (auch angehängte wie
+    'katalisatorpunkt'), sofern das Grundwort im Zieltext vorkommt."""
+    target_words = set(target_text.split())
+    out = []
+    for w in transcript_text.split():
+        if w in target_words:
+            out.append(w)
+            continue
+        if w in WHISPER_FILLERS:
+            continue
+        for suffix in ("punktst", "punkts", "punkt", "punk"):
+            if w.endswith(suffix) and w[: -len(suffix)] in target_words:
+                w = w[: -len(suffix)]
+                break
+        out.append(w)
+    return " ".join(out)
 
 
 def analyze_ogg_acoustics(ogg_path: Path) -> Dict:
@@ -203,11 +232,12 @@ def main():
         pass
 
     # Load Whisper for independent verification on final mastered OGGs
+    w_model = cfg.get("qa_validation", {}).get("whisper_model", "base")
     try:
-        whisper = WhisperModel("base", device="cuda" if torch.cuda.is_available() else "cpu", compute_type="float16")
+        whisper = WhisperModel(w_model, device="cuda" if torch.cuda.is_available() else "cpu", compute_type="float16")
         list(whisper.transcribe(str(final_ogg_dir / sampled_entries[0]["target_ogg_filename"]), language="de", beam_size=1)[0])
     except Exception:
-        whisper = WhisperModel("base", device="cpu", compute_type="int8", cpu_threads=8)
+        whisper = WhisperModel(w_model, device="cpu", compute_type="int8", cpu_threads=8)
 
     audit_results = []
     table = Table(title=f"Independent Quality Audit Results ({len(sampled_entries)} / {args.sample_size} Target Quests)")
@@ -237,6 +267,7 @@ def main():
 
         norm_t = normalize_text(transcript)
         norm_ref = normalize_text(e.get("tts_script_text") or e["clean_de_text"])
+        norm_t = strip_whisper_fillers(norm_t, norm_ref)
         cer = Levenshtein.distance(norm_ref, norm_t) / max(1, len(norm_ref))
         wer = float(compute_wer(norm_ref, norm_t)) if norm_t else 1.0
 
