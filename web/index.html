@@ -540,8 +540,17 @@
         return hay.includes(q);
       });
 
+      const PAGE_SIZE = 100;
+      const displayList = filtered.slice(0, PAGE_SIZE);
+
       const container = document.getElementById('playlistContainer');
-      container.innerHTML = filtered.map((e, i) => {
+      const countNote = filtered.length > PAGE_SIZE
+        ? `<div style="grid-column: 1 / -1; padding: 0.8rem 1.2rem; background: rgba(245, 197, 66, 0.12); border: 1px solid rgba(245, 197, 66, 0.35); border-radius: 8px; color: var(--gold); font-size: 0.85rem;">
+             ℹ️ Es werden die ersten 100 von <strong>${filtered.length}</strong> Quests angezeigt (Browser-Schutz). Nutze das Suchfeld oder den Sprecher-Filter, um gezielt zu suchen.
+           </div>`
+        : '';
+
+      container.innerHTML = countNote + displayList.map((e, i) => {
         const qa = e.qa_result || { cer: 0, wer: 0, effective_error: 0, passed: true, transcript: '' };
         const phonetics = (e.phonetic_replacements && e.phonetic_replacements.length)
           ? e.phonetic_replacements.join(' • ')
@@ -607,6 +616,10 @@
     document.getElementById('searchInput').addEventListener('input', renderCards);
     document.getElementById('speakerFilter').addEventListener('change', renderCards);
     document.getElementById('raceFilter').addEventListener('change', renderCards);
+
+    // Initial check: if a job is already running on page load, start polling immediately
+    pollJobStatus();
+    setInterval(pollJobStatus, 2500);
 
     loadPlaylist();
   </script>
