@@ -1,22 +1,20 @@
 #!/usr/bin/env python3
 """
-Step 6: Audio Post-Processing & Addon Export (06_audio_fx.py)
--------------------------------------------------------------
-1. Applies race-specific acoustic DSP chains via FFmpeg (`af_chain` from config.yaml):
-   - Blood Elf: Crisp high-mid presence + subtle Silvermoon hall reflection
-   - Void Elf: Ethereal dual-phase void whisper & dark resonance
-   - Entartung (Void Wretch): Slight pitch-down & eerie cave shadow echo
-   - Troll (Amani): Warm chest resonance + temple ambience
-   - Undead: Raspy high-pass + hollow metallic dual-delay
-   - Tauren / Gnome / Goblin: Formant-preserving pitch/EQ profiles.
-2. Normalizes loudness to EBU R128 (`loudnorm=I=-16:TP=-1.5:LRA=11`) matching
-   World of Warcraft's MASTER audio channel level.
-3. Exports as OGG Vorbis (`libvorbis`, `-q:a 4`, 44.1 kHz) with exact ChattyLittleNpc
-   filenames (`<QuestID>_<Phase>.ogg`) into `output/final_ogg/`.
-4. Builds a complete, ready-to-play WoW Addon pack:
-   `ChattyLittleNpc_Midnight_deDE_voiceovers` (including `.toc`, `Main.lua`,
-   and `VoiceoversList.lua` with exact `OggVorbis` durations) and optionally
-   installs/symlinks it directly into the live WoW `_retail_/Interface/AddOns/` folder!
+Step 6: Audio-Postprocessing & Addon-Export (06_audio_fx.py)
+------------------------------------------------------------
+1. Rassenspezifische DSP-Ketten via FFmpeg (`af_chain` aus config.yaml):
+   - Blood Elf: Präsenz-Boost + Hall
+   - Void Elf: Dual-Chorus + dunkler Hall
+   - Entartung: Pitch −4 % + Echo
+   - Troll: Bass-Boost + Echo
+   - Undead: Hochpass + EQ-Boost + Delay
+   - Tauren / Gnome / Goblin: Pitch-/EQ-Profile
+2. Lautheits-Normalisierung nach EBU R128 (loudnorm=I=-16:TP=-1.5:LRA=11).
+3. Export als OGG Vorbis (libvorbis, -q:a 4, 44,1 kHz) mit den exakten
+   ChattyLittleNpc-Dateinamen (<QuestID>_<Phase>.ogg) nach output/final_ogg/.
+4. Baut das fertige Addon-Paket (ChattyLittleNpc_<Expansion>_deDE_voiceovers
+   mit .toc, Main.lua, VoiceoversList.lua inkl. OggVorbis-Dauern) und
+   installiert es optional direkt in WoW _retail_/Interface/AddOns/.
 """
 
 import argparse

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Unified Frontier-AI Client (pipeline/ai_client.py)
---------------------------------------------------
+AI-Provider-Gateway (pipeline/ai_client.py)
+-------------------------------------------
 Single gateway for AI repair / optimization calls to external providers:
 
     - OpenAI        (api.openai.com)
@@ -46,7 +46,7 @@ DEFAULT_PRICING_USD_PER_1M = {
 }
 
 REPAIR_SYSTEM_PROMPT = (
-    "Du bist der \"Frontier QA Inspector\" einer World-of-Warcraft-Voiceover-Pipeline "
+    "Du bist der QA-Reparatur-Agent einer World-of-Warcraft-Voiceover-Pipeline "
     "(Coqui XTTS-v2, deutsche Sprache). Ein gesprochener Take wurde mit Faster-Whisper "
     "transkribiert und weicht vom Zieltext ab. Erstelle daraus eine optimierte, phonetisch "
     "robuste deutsche TTS-Vorlage:\n"
@@ -312,7 +312,7 @@ def repair_script_with_ai(
     entry_context: str = "",
 ) -> Tuple[Optional[str], str, Dict]:
     """
-    Frontier QA Inspector: lets the configured AI rewrite the failed line into a
+    KI-Reparatur: lässt die konfigurierte KI die fehlgeschlagene Zeile in ein
     phonetically robust German TTS script.
     Returns (repaired_text, note, usage) — usage is {} when the call failed.
     Returns (None, reason, {}) when the call fails or the reply is unusable.

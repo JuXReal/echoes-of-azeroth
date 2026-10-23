@@ -67,7 +67,7 @@ COMMUNITY_ETHICS_NOTICE_EN = """[bold yellow]⚠️  IMPORTANT COMMUNITY NOTICE 
 [bold cyan]3. Why English Packs Are Strictly Essential:[/bold cyan]
    • The unique vocal identity, timbre, and emotion (6–10s 24kHz seeds) are cloned from the English original files.
    • Canonical QuestID and NPC file mapping structure (VoiceoversList.lua).
-   • Seamless in-game fallback when a quest or gossip line is not yet translated."""
+   • Automatischer In-Game-Fallback für noch nicht lokalisierte Quest-/Gossip-Zeilen."""
 
 COMMUNITY_ETHICS_NOTICE_DE = """[bold yellow]⚠️  WICHTIGER COMMUNITY-HINWEIS & QUALITÄTSVERANTWORTUNG DES NUTZERS[/bold yellow]
 

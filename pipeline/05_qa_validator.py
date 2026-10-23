@@ -1,29 +1,21 @@
 #!/usr/bin/env python3
 """
-Step 5: Automated Quality Assurance Loop (05_qa_validator.py)
--------------------------------------------------------------
-Nothing enters the addon unverified! Implements a two-stage QA gate:
+Step 5: QA-Schleife (05_qa_validator.py)
+----------------------------------------
+1. Lokale Prüfung: Transkription des frischen WAV mit Faster-Whisper,
+   WER/CER (jiwer/Levenshtein), Wortzahlverhältnis und
+   Wiederholungs-/Halluzinationserkennung.
+2. Retry: Überschreitet der Fehler die Schwelle (Standard 15 %), wird mit
+   angepassten Parametern (Temperature, Repetition-Penalty, Archetyp-Seed)
+   erneut synthetisiert und geprüft.
+3. KI-Reparatur (optional): Nach ai.trigger_after_failures (Standard: 3)
+   Fehlversuchen schreibt die konfigurierte KI (OpenAI / OpenRouter /
+   Google Gemini / DeepSeek / Ollama — pipeline/ai_client.py) das Skript
+   phonetisch neu; danach erneute Synthese und Prüfung. Ohne KI greifen
+   lokale Reparaturregeln.
 
-1. Local Pre-Check (Fast & Zero API Cost):
-   - Transcribes the freshly synthesized German WAV with local Faster-Whisper
-     on CUDA (float16).
-   - Evaluates Word Error Rate (WER via `jiwer`), Normalized Levenshtein
-     Character Error Rate (CER via `Levenshtein`), missing words, and
-     repetition/hallucination loops.
-   - If deviation > 15% (0.15) or hallucinations are detected:
-     Rejects the file and triggers an automatic re-synthesis with adjusted
-     temperature, repetition_penalty, and pause settings.
-
-2. Frontier QA Inspector (Stage 2 Escalation):
-   - Attempts 1..N use the deterministic local phonetic repair rules.
-   - After `ai.trigger_after_failures` (default: 3) failed attempts, the
-     configured external AI (OpenAI / OpenRouter / Google Gemini / DeepSeek /
-     Ollama — see pipeline/ai_client.py) analyzes the Whisper transcript vs.
-     the target text and rewrites an optimized phonetic script, which is then
-     re-synthesized and re-validated.
-
-Live progress (current quest, attempt, CER, counts, ETA, AI calls) is written
-to output/qa_reports/live_state.json for the Web Studio.
+Live-Fortschritt (aktuelle Quest, Versuch, CER, Zähler, ETA, KI-Aufrufe)
+wird in output/qa_reports/live_state.json für das Web-Studio geschrieben.
 """
 
 import argparse
@@ -206,7 +198,7 @@ def evaluate_audio_with_whisper(
 
 def frontier_inspector_phonetic_repair(script_text: str, transcript: str, attempt: int) -> Tuple[str, str]:
     """
-    Frontier QA Inspector:
+    Lokale Reparaturregeln:
     Analyzes mismatches between the target script and Whisper's transcript and
     applies targeted phonetic/prosodic repairs for retry synthesis.
     """
@@ -229,7 +221,7 @@ def frontier_inspector_phonetic_repair(script_text: str, transcript: str, attemp
             notes.append(f"split_compound({comp})")
 
     if attempt >= 2:
-        # Ensure crisp sentence endings and remove any remaining semicolons/colons
+        # Satzenden vereinfachen: Doppelpunkte/Semikolons zu Punkten
         repaired = repaired.replace(":", ".").replace(";", ".")
         notes.append("simplified_clause_boundaries")
 
@@ -237,7 +229,7 @@ def frontier_inspector_phonetic_repair(script_text: str, transcript: str, attemp
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Step 5: Faster-Whisper + Frontier QA Gate.")
+    parser = argparse.ArgumentParser(description="Step 5: Faster-Whisper-QA + optionale KI-Reparatur.")
     parser.add_argument("--config", default="config.yaml", help="Path to config.yaml")
     parser.add_argument("--entry-id", default=None, help="Validate only a single entry_id (used by regenerate_single.sh)")
     args = parser.parse_args()
@@ -272,13 +264,13 @@ def main():
     )
     if ai_ok:
         console.print(
-            f"[magenta]• Frontier AI-Repair aktiv: {ai_settings['provider']} / {ai_settings['model']} "
+            f"[magenta]• KI-Reparatur aktiv: {ai_settings['provider']} / {ai_settings['model']} "
             f"(nach {ai_settings['trigger_after_failures']} Fehlversuchen)[/magenta]"
         )
     else:
-        console.print("[dim]• Frontier AI-Repair inaktiv (kein Provider/Key in .env konfiguriert) — nur lokale Regeln.[/dim]")
+        console.print("[dim]• KI-Reparatur inaktiv (kein Provider/Key in .env konfiguriert) — nur lokale Regeln.[/dim]")
 
-    console.rule("[bold cyan]Step 5: Automated Quality Control Loop (Faster-Whisper + Frontier QA Inspector)[/bold cyan]")
+    console.rule("[bold cyan]Step 5: QA-Schleife (Faster-Whisper + optionale KI-Reparatur)[/bold cyan]")
     begin_step("qa", total=len(entries))
 
     w_model_name = qa_cfg.get("whisper_model", "base")
@@ -386,8 +378,8 @@ def main():
                         "ai_provider": ai_settings["provider"],
                     })
                     console.print(
-                        f"[magenta]  ✨ Frontier AI-Repair ({ai_settings['provider']} / {ai_settings['model']}) "
-                        f"for {eid} after {attempt} failed attempts...[/magenta]"
+                        f"[magenta]  ✨ KI-Reparatur ({ai_settings['provider']} / {ai_settings['model']}) "
+                        f"für {eid} nach {attempt} Fehlversuchen ...[/magenta]"
                     )
                     repaired_script, inspector_note, ai_usage = repair_script_with_ai(
                         ai_settings,
@@ -420,7 +412,7 @@ def main():
                         )
                         inspector_note = f"ai_fallback: {inspector_note}"
                 else:
-                    # Deterministic local Frontier Inspector repair
+                    # Lokale Reparaturregeln
                     repaired_script, inspector_note = frontier_inspector_phonetic_repair(
                         target_text, eval_res["transcript"], attempt
                     )

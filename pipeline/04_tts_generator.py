@@ -98,7 +98,7 @@ class XTTSBatchSynthesizer:
 
         gpt_cond_latent, speaker_embedding = self.get_speaker_latents(ref_wav_path)
 
-        # Split into sentences so XTTS never truncates long paragraphs and has crisp cadence
+        # In Sätze aufteilen, damit XTTS lange Absätze nicht abschneidet
         raw_sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text.strip()) if s.strip()]
         if not raw_sentences:
             raw_sentences = [text.strip()]

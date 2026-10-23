@@ -1,22 +1,16 @@
 #!/usr/bin/env python3
 """
-Step 3: Two-Stage Model Routing & Script Director Agent (03_script_agent.py)
-----------------------------------------------------------------------------
-Strictly separates tasks by complexity for cost efficiency and peak quality:
+Step 3: Skript-Aufbereitung (03_script_agent.py)
+------------------------------------------------
+Stufe 1 — Lokale Normalisierung (regelbasiert):
+  - Zahlen (num2words de), Abkürzungen und Dialektkontraktionen
+    (Amani-Apostrophe wie "is'", "nich'", "helf'n", "aus'm") in sauberes
+    gesprochenes Deutsch auflösen, damit XTTS-v2 nicht buchstabiert.
 
-STAGE 1 — Small / Local Model (LM Studio / Ollama / Deterministic Rule Engine):
-  - Routine tasks: Metadata validation, Race-FX assignment, expansion of numbers
-    (num2words de), abbreviations, and normalization of dialect contractions
-    (e.g., Amani Troll apostrophes like "is'", "nich'", "helf'n", "aus'm") so
-    XTTS-v2 does not spell out letters or glitch on apostrophes.
-
-STAGE 2 — Frontier Model Director (LLM API + Expert Curated Director Profiles):
-  - Dramaturgical staging of German texts: Precision pauses (commas, ellipses),
-    sentence pacing to prevent XTTS-v2 token limit truncation, and emotional
-    prosody tuning (speed/temperature hints based on NPC situation & stage cues).
-  - Phonetic respelling of complex Warcraft proper nouns into fluid German
-    sound patterns without hard hyphens (e.g., "Kwell Thalas", "Sul Aman",
-    "Ulla Teck", "Atall Uteck", "Kithicks", "Srohl").
+Stufe 2 — Regelbasiertes Scripting:
+  - Satzlängen für XTTS-v2 begrenzen (< 180 Zeichen), Pausen setzen,
+    Prosodie-Hinweise (Tempo/Temperatur) ableiten und Warcraft-Eigennamen
+    phonetisch umschreiben (z. B. "Kwell Thalas", "Sul Aman", "Srohl").
 """
 
 import argparse
@@ -141,7 +135,7 @@ def tier1_routine_normalize(text: str) -> str:
 
 
 # ==============================================================================
-# STAGE 2: Frontier Model Director — Dramaturgy, Pauses & Warcraft Phonetics
+# STAGE 2: Regelbasiertes Scripting — Pausen & Warcraft-Phonetik
 # ==============================================================================
 def apply_phonetic_lexicon(text: str, lexicon: Dict[str, str]) -> Tuple[str, List[str]]:
     """
@@ -231,10 +225,10 @@ def infer_emotion_and_prosody(entry: Dict) -> Dict:
 
 def stage2_frontier_dramaturgy(text_tier1: str, entry: Dict, lexicon: Dict[str, str]) -> Tuple[str, str, List[str], Dict]:
     """
-    Stage 2 (Frontier Director):
+    Stufe 2 (regelbasiertes Scripting):
     1. Produces `qa_reference_text`: Clean German text with standard punctuation for
        accurate Whisper WER comparison (plus phonetic proper nouns).
-    2. Produces `tts_script_text`: Dramaturgically paced text optimized for Coqui XTTS-v2
+    2. Erzeugt `tts_script_text`: für Coqui XTTS-v2 optimierter Text
        in German — clean sentence boundaries (each sentence <= 180 chars so XTTS never
        hits its 250-char token cap), natural breathing pauses via commas/periods,
        and phonetic Warcraft proper nouns.
@@ -299,7 +293,7 @@ def try_external_frontier_api(prompt: str) -> Optional[str]:
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Step 3: Two-Stage LLM Routing & Phonetic Script Agent.")
+    parser = argparse.ArgumentParser(description="Step 3: Skript-Aufbereitung & Phonetik.")
     parser.add_argument("--config", default="config.yaml", help="Path to config.yaml")
     args = parser.parse_args()
 
@@ -313,7 +307,7 @@ def main():
     entries = pilot_data["entries"]
     lexicon = cfg["llm_routing"]["tier2_frontier"].get("phonetic_lexicon", {})
 
-    console.rule("[bold cyan]Step 3: Two-Stage Model Routing (Routine Normalizer + Frontier Script Director)[/bold cyan]")
+    console.rule("[bold cyan]Step 3: Skript-Aufbereitung (Normalisierung + Warcraft-Phonetik)[/bold cyan]")
     begin_step("script", total=len(entries))
 
     try:
@@ -326,10 +320,10 @@ def main():
     except Exception:
         pass
 
-    table = Table(title="Two-Stage Script Preparation & Warcraft Phonetics (Midnight DE)")
+    table = Table(title="Skripte & Warcraft-Phonetik (Midnight DE)")
     table.add_column("Entry", style="cyan")
     table.add_column("Speaker", style="green")
-    table.add_column("Emotion / Director Note", style="magenta")
+    table.add_column("Prosodie-Hinweis", style="magenta")
     table.add_column("Phonetic Adaptations", style="yellow")
     table.add_column("Final TTS Script Preview", style="white")
 
@@ -346,7 +340,7 @@ def main():
         # Tier 1: Routine normalizer (numbers, abbreviations, dialect apostrophes)
         tier1_text = tier1_routine_normalize(raw_clean)
 
-        # Tier 2: Frontier Dramaturgical Director (pauses, clause pacing, Warcraft phonetics, prosody)
+        # Stufe 2: Pausen, Satzgrenzen, Warcraft-Phonetik, Prosodie
         tts_script, qa_target, phonetics, prosody = stage2_frontier_dramaturgy(tier1_text, e, lexicon)
 
         e["tier1_normalized_text"] = tier1_text
@@ -367,7 +361,7 @@ def main():
 
     console.print(table)
     pilot_path.write_text(json.dumps(pilot_data, indent=2, ensure_ascii=False), encoding="utf-8")
-    console.print(f"[bold green]✓ Prepared {len(entries)} dramatic German voiceover scripts -> {pilot_path}[/bold green]")
+    console.print(f"[bold green]✓ {len(entries)} deutsche Voiceover-Skripte vorbereitet -> {pilot_path}[/bold green]")
     finish_step(ok=True)
 
 

@@ -74,7 +74,7 @@ llm_routing:
       "Sylvanas": "Silwanas"
 
 ai:
-  # Frontier-AI repair after repeated QA failures (Step 5 escalation).
+  # KI-Reparatur nach wiederholten QA-Fehlversuchen (Step-5-Eskalation).
   # SECURITY: API keys are NEVER stored here — they live in the git-ignored
   # .env file (AI_API_KEY) and are managed via the Web Studio settings panel.
   enabled: true                    # Master switch (AI_ENABLED in .env overrides)
@@ -128,31 +128,31 @@ audio_fx:
     sample_rate: 44100
   race_profiles:
     "Blood Elf":
-      description: "Silky, crisp high-mid presence for Quel'Thalas elves"
+      description: "3,2-kHz-Präsenz-Boost, leichter Hall"
       af_chain: "equalizer=f=3200:width_type=q:width=1.2:g=1.8,aecho=0.8:0.88:25:0.08"
     "Void Elf":
-      description: "Subtle ethereal void whisper / dual-phase chorus & dark reverb"
+      description: "Dual-Phasen-Chorus, dunkler Hall"
       af_chain: "aecho=0.8:0.88:45|90:0.16|0.10,equalizer=f=180:width_type=q:width=1.0:g=1.5,equalizer=f=4500:width_type=q:width=1.5:g=2.0"
     "Undead":
-      description: "Raspy, hollow grave resonance with metallic dual-delay"
+      description: "Hochpass 130 Hz, 2,4-kHz-Boost, Metall-Doppel-Delay"
       af_chain: "highpass=f=130,equalizer=f=2400:width_type=q:width=1.5:g=3.0,aecho=0.8:0.85:35|70:0.25|0.18"
     "Entartung":
-      description: "Void aberration / wretched creature — eerie pitch & shadow echo"
+      description: "Pitch −4 %, Schatten-Echo"
       af_chain: "asetrate=24000*0.96,aresample=24000,atempo=1/0.96,aecho=0.8:0.88:55|110:0.22|0.14"
     "Troll":
-      description: "Warm chest resonance for Amani / Forest Trolls"
+      description: "140-Hz-Bass-Boost, Tempel-Echo"
       af_chain: "equalizer=f=140:width_type=q:width=1.1:g=2.5,aecho=0.8:0.88:30:0.10"
     "Tauren":
-      description: "Deep chest bass boost and warm low-end"
+      description: "Pitch −6 %, 110-Hz-Bass-Boost"
       af_chain: "asetrate=24000*0.94,aresample=24000,atempo=1/0.94,equalizer=f=110:width_type=q:width=1.0:g=4.0"
     "Gnome":
-      description: "Slight upward formant/pitch shift without chipmunk distortion"
+      description: "Pitch +6 %, Hochpass 120 Hz"
       af_chain: "asetrate=24000*1.06,aresample=24000,atempo=1/1.06,highpass=f=120"
     "Goblin":
-      description: "Gritty mid-forward presence with slight upward pitch"
+      description: "Pitch +5 %, 1,8-kHz-Boost"
       af_chain: "asetrate=24000*1.05,aresample=24000,atempo=1/1.05,equalizer=f=1800:width_type=q:width=1.2:g=2.5"
     "Default":
-      description: "Clean studio voiceover with gentle room warmth"
+      description: "Hochpass 75 Hz, 3-kHz-Boost"
       af_chain: "highpass=f=75,equalizer=f=3000:width_type=q:width=1.4:g=1.2"
 
 web:
