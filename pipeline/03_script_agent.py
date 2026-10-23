@@ -203,14 +203,14 @@ def infer_emotion_and_prosody(entry: Dict, cfg: Optional[Dict] = None) -> Dict:
         "acting_note": "Klare, natürliche und charaktergetreue Betonung.",
     }
 
-    if "zorn" in cues or "verhärtet" in cues or "falle" in text or "blind" in text:
+    if any(k in cues for k in ("zorn", "verhärtet", "wütend", "schreit", "brüllt", "brodelt", "wut")) or "falle" in text or "blind" in text:
         prosody = {
             "emotion": "grim_determined_anger",
             "tts_temperature": 0.65,
             "tts_speed": 1.00,
             "acting_note": "Angespannt, entschlossen, leicht grollender Unterton mit markanten Pausen.",
         }
-    elif "duckt sich" in cues or "tut mir nicht weh" in text or "kreatur wie mich" in text:
+    elif any(k in cues for k in ("duckt sich", "zittert", "flüstert", "ängstlich", "fleht", "verzweifelt")) or "tut mir nicht weh" in text or "kreatur wie mich" in text:
         prosody = {
             "emotion": "fearful_pleading_wretch",
             "tts_temperature": 0.68,
@@ -223,6 +223,13 @@ def infer_emotion_and_prosody(entry: Dict, cfg: Optional[Dict] = None) -> Dict:
             "tts_temperature": 0.64,
             "tts_speed": 0.98,
             "acting_note": "Düster, langsam, verführerisch-unheimlich (Geisthexe von Atal'Utek).",
+        }
+    elif any(k in cues for k in ("lächelt", "freundlich", "sanft", "herzlich", "lacht")):
+        prosody = {
+            "emotion": "warm_friendly",
+            "tts_temperature": 0.60,
+            "tts_speed": 0.99,
+            "acting_note": "Warm, freundlich, leicht gelöst.",
         }
     elif arch == "lore_lorthemar_theron":
         prosody = {
@@ -324,7 +331,31 @@ def stage2_frontier_dramaturgy(text_tier1: str, entry: Dict, lexicon: Dict[str, 
     tts_script = " ".join(refined_sentences).strip()
 
     prosody = infer_emotion_and_prosody(entry, cfg)
+    tts_script, prosody = apply_emotion_punctuation(tts_script, prosody)
     return tts_script, phonetic_text, applied_phonetics, prosody
+
+
+def apply_emotion_punctuation(script: str, prosody: Dict) -> Tuple[str, Dict]:
+    """
+    Übersetzt die erkannte Emotion in Text-/Tempo-Hinweise für XTTS-v2
+    (Satzzeichen sind der einzige direkte Ausdrucks-Kanal des Modells):
+      - Zorn: Satzpunkte -> Ausrufezeichen, minimal schneller
+      - Ängstlich/düster: minimal langsamer
+    """
+    emotion = prosody.get("emotion", "")
+    if emotion == "grim_determined_anger":
+        sents = re.split(r"(?<=[.!?])\s+", script)
+        out = []
+        for s in sents:
+            if s.endswith(".") and len(s) >= 12:
+                s = s[:-1] + "!"
+            out.append(s)
+        script = " ".join(out)
+        prosody["tts_speed"] = max(float(prosody.get("tts_speed", 1.0)), 1.04)
+        prosody["acting_note"] = (prosody.get("acting_note", "") + " Sätze mit Nachdruck.").strip()
+    elif emotion in ("fearful_pleading_wretch", "dark_mystical_alluring"):
+        prosody["tts_speed"] = min(float(prosody.get("tts_speed", 1.0)), 0.96)
+    return script, prosody
 
 
 def try_external_frontier_api(prompt: str) -> Optional[str]:

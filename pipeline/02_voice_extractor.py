@@ -77,9 +77,11 @@ def find_best_speech_window(
     ideal_sec: float = 8.5,
 ) -> Tuple[float, float, float]:
     """
-    Analyzes an OGG file to find the cleanest, highest-speech-density window
-    of length between min_sec and max_sec (targeting ideal_sec).
-    Returns (start_sec, duration_sec, rms_score).
+    Sucht das sauberste UND ausdrucksstärkste Fenster (Sprachdichte +
+    Lautstärke-Dynamik) zwischen min_sec und max_sec (Ziel: ideal_sec).
+    Impulsive, emotionale Passagen der Originale werden so als Klon-Seed
+    bevorzugt und übertragen mehr Ausdruck auf die Synthese.
+    Returns (start_sec, duration_sec, score).
     """
     data, sr = sf.read(str(audio_path), always_2d=True)
     mono = np.mean(data, axis=1)
@@ -110,9 +112,15 @@ def find_best_speech_window(
         else:
             active_ratio = 1.0
 
-        # Score favors strong RMS, high active speech continuity, and no harsh clipping
+        # Score bevorzugt kräftiges RMS, hohe Sprachdichte, Ausdrucksdynamik
+        # (Varianz der Frame-Lautstärke) und bestraft hartes Clipping
         clip_penalty = 0.7 if peak > 0.99 else 1.0
-        score = rms * (0.4 + 0.6 * active_ratio) * clip_penalty
+        if n_frames > 1:
+            dyn = float(np.std(frame_rms) / max(rms, 1e-8))
+            dyn_score = min(1.0, max(0.0, (dyn - 0.1) * 1.8))
+        else:
+            dyn_score = 0.0
+        score = rms * (0.35 + 0.45 * active_ratio + 0.20 * dyn_score) * clip_penalty
         if score > best_score:
             best_score = score
             best_start = start
