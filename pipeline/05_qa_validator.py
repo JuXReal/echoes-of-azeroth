@@ -32,6 +32,8 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from pipeline.cuda_env import setup as setup_cuda_env
+setup_cuda_env()
 
 # Suppress cosmetic upstream warnings
 os.environ["COQUI_TOS_AGREED"] = "1"

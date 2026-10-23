@@ -42,6 +42,8 @@ from rich.panel import Panel
 from rich.table import Table
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from pipeline.cuda_env import setup as setup_cuda_env
+setup_cuda_env()
 from pipeline.ai_client import get_settings as get_ai_settings, is_available as ai_is_available
 from pipeline.live_state import (
     begin_step,

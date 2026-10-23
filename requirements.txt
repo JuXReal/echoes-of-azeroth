@@ -4,6 +4,7 @@ torchaudio>=2.1.0
 torchvision>=0.16.0
 coqui-tts[codec]>=0.25.0
 faster-whisper>=1.0.0
+nvidia-cublas-cu12>=12.6.0  # libcublas.so.12 für Faster-Whisper/CTranslate2 (torch bringt nur CUDA 13)
 
 # Audio Processing & Metadata
 soundfile>=0.12.1
