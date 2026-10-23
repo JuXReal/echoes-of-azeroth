@@ -1,0 +1,139 @@
+# ==============================================================================
+# Echoes of Azeroth v0.5.0 — Multi-Language AI Voiceover Localization Pipeline
+# Tested & Validated with German (deDE) | Target Expansion Default: Midnight
+# ==============================================================================
+
+project:
+  name: "echoes-of-azeroth"
+  version: "0.5.0"
+  expansion: "Midnight"
+  locale: "deDE"
+  target_addon_name: "ChattyLittleNpc_Midnight_deDE_voiceovers"
+  interface_version: "120107, 120105"
+  pilot_limit: 20               # Number of benchmark quests for the first run (0 = all)
+
+paths:
+  # Local paths are automatically overridden by WOW_ADDONS_DIR & WOW_SAVED_VARS in .env
+  wow_addons_dir: "/path/to/World of Warcraft/_retail_/Interface/AddOns"
+  source_pack_dir: "/path/to/World of Warcraft/_retail_/Interface/AddOns/ChattyLittleNpc_Midnight_voiceovers"
+  main_addon_dir: "/path/to/World of Warcraft/_retail_/Interface/AddOns/ChattyLittleNpc"
+  saved_variables_lua: "/path/to/World of Warcraft/_retail_/WTF/Account/YOUR_ACCOUNT_NAME/SavedVariables/ChattyLittleNpc.lua"
+  data_original: "data/original"
+  data_raw_de_text: "data/raw_de_text"
+  data_reference_voices: "data/reference_voices"
+  output_raw_tts: "output/raw_tts_wav"
+  output_final_ogg: "output/final_ogg"
+  output_qa_reports: "output/qa_reports"
+  output_addon_pack: "output/ChattyLittleNpc_Midnight_deDE_voiceovers"
+
+voice_extraction:
+  sample_rate: 24000
+  channels: 1
+  min_duration_sec: 6.0
+  max_duration_sec: 10.0
+  ideal_duration_sec: 8.5
+  silence_threshold_db: -42
+  highpass_hz: 70
+  lowpass_hz: 11500
+
+llm_routing:
+  tier1_local:
+    provider: "lmstudio_or_rule_engine"
+    endpoint: "http://localhost:1234/v1/chat/completions"
+    model: "gemma-4-E4B-it"
+    temperature: 0.1
+  tier2_frontier:
+    provider: "frontier_director"
+    model: "gemini-4-argon"
+    temperature: 0.35
+    phonetic_lexicon:
+      "Xal'atath": "Xallatath"
+      "Quel'Thalas": "Kwell Thalas"
+      "Quel'Danas": "Kwell Danas"
+      "Zul'Aman": "Sul Aman"
+      "Zul'jarra": "Sul Dschara"
+      "Atal'Utek": "Atall Uteck"
+      "Ula'tek": "Ulla Teck"
+      "Kith'ix": "Kithicks"
+      "Lor'themar Theron": "Lorthemar Theron"
+      "Lor'themar": "Lorthemar"
+      "Alleria": "Alleria"
+      "Turalyon": "Turaljon"
+      "Arator": "Arator"
+      "Umbric": "Umbrik"
+      "Liadrin": "Liadrin"
+      "Halduron": "Halduron"
+      "Amani": "Amani"
+      "Aqir": "Akir"
+      "Haranir": "Haranir"
+      "Harandar": "Harandar"
+      "Er'inye": "Erinje"
+      "Thrall": "Srohl"
+      "Jaina": "Dscheina"
+      "Anduin Wrynn": "Anduin Rinn"
+      "Sylvanas": "Silwanas"
+
+tts:
+  engine: "xtts_v2"
+  model_name: "tts_models/multilingual/multi-dataset/xtts_v2"
+  device: "cuda"
+  use_fp16: true
+  language: "de"
+  temperature: 0.65
+  length_penalty: 1.0
+  repetition_penalty: 5.0
+  top_k: 50
+  top_p: 0.85
+  speed: 1.02
+  split_sentences: true
+
+qa_validation:
+  whisper_model: "base"         # Options: tiny, base, small, medium, large-v3
+  whisper_device: "cuda"
+  whisper_compute_type: "float16"
+  max_wer_threshold: 0.15       # 15% maximum Word Error Rate / Levenshtein normalized distance
+  max_retries: 3
+  retry_temperature_step: -0.08
+  retry_repetition_penalty_step: 1.5
+
+audio_fx:
+  loudnorm:
+    integrated_lufs: -16.0
+    true_peak_db: -1.5
+    lra: 11.0
+  ogg_export:
+    codec: "libvorbis"
+    quality: 4
+    sample_rate: 44100
+  race_profiles:
+    "Blood Elf":
+      description: "Silky, crisp high-mid presence for Quel'Thalas elves"
+      af_chain: "equalizer=f=3200:width_type=q:width=1.2:g=1.8,aecho=0.8:0.88:25:0.08"
+    "Void Elf":
+      description: "Subtle ethereal void whisper / dual-phase chorus & dark reverb"
+      af_chain: "aecho=0.8:0.88:45|90:0.16|0.10,equalizer=f=180:width_type=q:width=1.0:g=1.5,equalizer=f=4500:width_type=q:width=1.5:g=2.0"
+    "Undead":
+      description: "Raspy, hollow grave resonance with metallic dual-delay"
+      af_chain: "highpass=f=130,equalizer=f=2400:width_type=q:width=1.5:g=3.0,aecho=0.8:0.85:35|70:0.25|0.18"
+    "Entartung":
+      description: "Void aberration / wretched creature — eerie pitch & shadow echo"
+      af_chain: "asetrate=24000*0.96,aresample=24000,atempo=1/0.96,aecho=0.8:0.88:55|110:0.22|0.14"
+    "Troll":
+      description: "Warm chest resonance for Amani / Forest Trolls"
+      af_chain: "equalizer=f=140:width_type=q:width=1.1:g=2.5,aecho=0.8:0.88:30:0.10"
+    "Tauren":
+      description: "Deep chest bass boost and warm low-end"
+      af_chain: "asetrate=24000*0.94,aresample=24000,atempo=1/0.94,equalizer=f=110:width_type=q:width=1.0:g=4.0"
+    "Gnome":
+      description: "Slight upward formant/pitch shift without chipmunk distortion"
+      af_chain: "asetrate=24000*1.06,aresample=24000,atempo=1/1.06,highpass=f=120"
+    "Goblin":
+      description: "Gritty mid-forward presence with slight upward pitch"
+      af_chain: "asetrate=24000*1.05,aresample=24000,atempo=1/1.05,equalizer=f=1800:width_type=q:width=1.2:g=2.5"
+    "Default":
+      description: "Clean studio voiceover with gentle room warmth"
+      af_chain: "highpass=f=75,equalizer=f=3000:width_type=q:width=1.4:g=1.2"
+
+web:
+  host: "127.0.0.1"
+  port: 8765
