@@ -25,10 +25,20 @@ import argparse
 import gc
 import importlib.util
 import json
+import logging
+import os
 import re
 import time
+import warnings
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+# Suppress cosmetic upstream warnings
+os.environ["COQUI_TOS_AGREED"] = "1"
+os.environ["TRANSFORMERS_VERBOSITY"] = "error"
+warnings.filterwarnings("ignore")
+logging.getLogger("transformers").setLevel(logging.ERROR)
+logging.getLogger("TTS").setLevel(logging.ERROR)
 
 import Levenshtein
 import torch
