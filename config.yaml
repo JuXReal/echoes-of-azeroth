@@ -100,9 +100,9 @@ tts:
   device: "cuda"
   use_fp16: true
   language: "de"
-  temperature: 0.65
+  temperature: 0.58
   length_penalty: 1.0
-  repetition_penalty: 5.0
+  repetition_penalty: 10.0
   top_k: 50
   top_p: 0.85
   speed: 1.02

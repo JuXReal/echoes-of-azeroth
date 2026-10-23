@@ -175,6 +175,16 @@ def detect_hallucinations(transcript: str, target: str) -> Tuple[bool, str]:
     if ratio > 1.45:
         return True, f"babble_overflow (ratio={ratio:.2f})"
 
+    # Trailing continuation: line was spoken correctly, then XTTS kept talking
+    if len(target_words) >= 2:
+        t_last = tuple(target_words[-2:])
+        for i in range(len(words) - 2, -1, -1):
+            if tuple(words[i:i + 2]) == t_last:
+                extra = len(words) - (i + 2)
+                if extra >= 3:
+                    return True, f"trailing_continuation (+{extra} Woerter)"
+                break
+
     # Check 3-gram repetition loop
     for i in range(len(words) - 5):
         trigram = words[i : i + 3]

@@ -127,12 +127,17 @@ class XTTSBatchSynthesizer:
 
         with torch.inference_mode():
             for idx, sent in enumerate(raw_sentences):
+                # Kurze Sätze halluzinieren häufiger ("Punkt" / Fortsetzung am Ende)
+                # -> niedrigere Temperatur für mehr Stabilität
+                sent_temp = temp
+                if len(sent) < 30:
+                    sent_temp = min(temp, 0.5)
                 out = self.xtts_model.inference(
                     text=sent,
                     language=self.tts_cfg.get("language", "de"),
                     gpt_cond_latent=gpt_cond_latent,
                     speaker_embedding=speaker_embedding,
-                    temperature=max(0.15, min(0.95, temp)),
+                    temperature=max(0.15, min(0.95, sent_temp)),
                     length_penalty=len_pen,
                     repetition_penalty=rep_pen,
                     top_k=top_k,
