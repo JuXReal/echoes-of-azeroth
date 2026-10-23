@@ -192,11 +192,12 @@ def main():
         d.mkdir(parents=True, exist_ok=True)
 
     console.rule("[bold cyan]Step 2: Voice Seed Extraction & Embedding Pool (24kHz Mono WAV)[/bold cyan]")
-    begin_step("voices", total=len(pilot_data["entries"]))
 
     pilot_data = json.loads(pilot_path.read_text(encoding="utf-8"))
     all_entries = json.loads(full_path.read_text(encoding="utf-8"))
     entries = pilot_data["entries"]
+
+    begin_step("voices", total=len(entries))
 
     # 1. Build Canonical Archetype / Lore-NPC Voice Seeds from the best 8-10s source OGG per archetype
     archetype_candidates: Dict[str, List[Dict]] = {}
