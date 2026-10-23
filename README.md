@@ -118,7 +118,10 @@ model) live in `config.yaml`.
 
 Open `http://127.0.0.1:8765`: pick an expansion, start the 20-quest pilot,
 the full expansion or an audit, watch live progress/ETA/problem statistics
-and regenerate or A/B-listen to failed entries.
+and regenerate or A/B-listen to failed entries. The studio is fully
+bilingual (DE/EN toggle in the header); every card offers three players —
+mastered DE, unmastered RAW and the English original — and the live panel
+has one-click listen buttons for the entry currently being processed.
 
 **CLI:**
 
@@ -134,11 +137,11 @@ and regenerate or A/B-listen to failed entries.
 | # | Script | Function |
 | :--- | :--- | :--- |
 | 1 | `01_addon_analyzer.py` | Lua parsing, MD5 port, SavedVariables + Wowhead DE scraping |
-| 2 | `02_voice_extractor.py` | 24 kHz mono voice seeds (per NPC / archetype / line) |
-| 3 | `03_script_agent.py` | Number/dialect normalization, Warcraft phonetics, prosody |
-| 4 | `04_tts_generator.py` | XTTS-v2 synthesis with speaker-latent caching |
-| 5 | `05_qa_validator.py` | Whisper transcription, CER/WER gate, retries + AI repair |
-| 6 | `06_audio_fx.py` | Race FX, EBU R128 (−16 LUFS), OGG export, addon install |
+| 2 | `02_voice_extractor.py` | 24 kHz mono voice seeds (per NPC / archetype / line); expressiveness-scored window selection |
+| 3 | `03_script_agent.py` | Number/dialect normalization, Warcraft phonetics, emotion→punctuation/speed mapping |
+| 4 | `04_tts_generator.py` | XTTS-v2 synthesis with speaker-latent caching and hard sentence splitting |
+| 5 | `05_qa_validator.py` | Whisper (large-v3) transcription, CER/WER gate, cause-aware adaptive retries + AI repair |
+| 6 | `06_audio_fx.py` | Spectral EQ matching against the English original, race FX, EBU R128 (−16 LUFS), OGG export, addon install |
 | 7 | `07_independent_audit_100.py` | Independent sample audit: acoustics, post-FX CER/WER |
 
 All steps write progress (current quest, attempt, CER, counts, ETA, AI call
@@ -170,6 +173,29 @@ and displayed in the studio.
 > Note: reasoning models (e.g. `deepseek-reasoner`) can return empty content
 > because they spend the output budget on reasoning — use a chat model such
 > as `deepseek-chat`.
+
+### Sound & expression
+
+- **Spectral EQ matching** (step 6): every German take is matched band-wise
+  to its English original via a smoothed FIR curve (`firequalizer`), fixing
+  the characteristically "thin" XTTS sound; a configurable low-end body bias
+  makes voices as full as the originals (`audio_fx.eq_matching` in
+  `config.yaml`).
+- **Expressive seed selection** (step 2): seed windows are scored by speech
+  density *and* loudness dynamics, so impulsive, emotional passages of the
+  English originals are preferred as clone references.
+- **Emotion mapping** (step 3): the game's stage directions drive
+  punctuation and tempo (anger → exclamations + faster pace, fear →
+  slower), the only risk-free expression channel of XTTS-v2.
+- **Cause-aware retry tuning** (step 5): retry parameters adapt to the
+  detected failure type — trailing babble gets harder braking
+  (lower temperature, higher repetition penalty, shorter length penalty),
+  truncation gets a longer length penalty, repetition loops a much higher
+  penalty. Whisper's default QA model is `large-v3` for best German
+  transcription accuracy.
+- **Anti-artifact measures**: punctuation normalization (ellipses, dashes,
+  stray dots), lower temperature for very short sentences, and detection of
+  voiced punctuation, 2-/3-word repetition loops and trailing continuation.
 
 ### Quality responsibility & community
 
@@ -318,7 +344,10 @@ Whisper-Modell) stehen in `config.yaml`.
 `http://127.0.0.1:8765` öffnen: Expansion wählen, 20-Quest-Pilot,
 vollständige Expansion oder Audit starten, Live-Fortschritt/ETA/
 Problemstatistik verfolgen und fehlgeschlagene Einträge regenerieren oder
-per A/B anhören.
+per A/B anhören. Das Studio ist komplett zweisprachig (DE/EN-Umschalter im
+Header); jede Karte hat drei Player — DE gemastert, RAW ungemastert und das
+englische Original — und das Live-Panel bietet Ein-Klick-Hör-Buttons für
+den aktuell verarbeiteten Eintrag.
 
 **CLI:**
 
@@ -334,11 +363,11 @@ per A/B anhören.
 | # | Skript | Funktion |
 | :--- | :--- | :--- |
 | 1 | `01_addon_analyzer.py` | Lua-Parser, MD5-Port, SavedVariables + Wowhead-DE-Scraping |
-| 2 | `02_voice_extractor.py` | 24-kHz-Mono-Voice-Seeds (pro NPC / Archetyp / Zeile) |
-| 3 | `03_script_agent.py` | Zahlen-/Dialekt-Normalisierung, Warcraft-Phonetik, Prosodie |
-| 4 | `04_tts_generator.py` | XTTS-v2-Synthese mit Speaker-Latent-Caching |
-| 5 | `05_qa_validator.py` | Whisper-Transkription, CER/WER-Gate, Retries + KI-Reparatur |
-| 6 | `06_audio_fx.py` | Race-FX, EBU R128 (−16 LUFS), OGG-Export, Addon-Installation |
+| 2 | `02_voice_extractor.py` | 24-kHz-Mono-Voice-Seeds (pro NPC / Archetyp / Zeile); ausdrucks-bewertete Fensterwahl |
+| 3 | `03_script_agent.py` | Zahlen-/Dialekt-Normalisierung, Warcraft-Phonetik, Emotions→Satzzeichen/Tempo |
+| 4 | `04_tts_generator.py` | XTTS-v2-Synthese mit Speaker-Latent-Caching und Härte-Satzsplit |
+| 5 | `05_qa_validator.py` | Whisper (large-v3), CER/WER-Gate, ursachen-bewusste Retries + KI-Reparatur |
+| 6 | `06_audio_fx.py` | Spektrales EQ-Matching gegen das EN-Original, Race-FX, EBU R128 (−16 LUFS), OGG-Export |
 | 7 | `07_independent_audit_100.py` | Unabhängige Stichprobe: Akustik, Post-FX-CER/WER |
 
 Alle Schritte schreiben ihren Fortschritt (aktuelle Quest, Versuch, CER,
@@ -370,6 +399,28 @@ geschrieben. Token-Verbrauch und geschätzte Kosten pro Aufruf werden in
 > Hinweis: Reasoning-Modelle (z. B. `deepseek-reasoner`) liefern teils leere
 > Antworten, weil das Output-Budget für Gedankengänge verbraucht wird — ein
 > Chat-Modell wie `deepseek-chat` verwenden.
+
+### Klang & Ausdruck
+
+- **Spektrales EQ-Matching** (Schritt 6): Jeder deutsche Take wird per
+  geglätteter FIR-Kurve (`firequalizer`) bandweise an sein englisches
+  Original angeglichen — behebt den typisch „dünnen" XTTS-Klang; ein
+  konfigurierbarer Grundton-Bias macht die Stimmen unten herum so satt wie
+  die Originale (`audio_fx.eq_matching` in `config.yaml`).
+- **Ausdrucksstarke Seed-Wahl** (Schritt 2): Seed-Fenster werden nach
+  Sprachdichte *und* Lautstärke-Dynamik bewertet, sodass impulsive,
+  emotionale Passagen der Originale als Klon-Vorlage bevorzugt werden.
+- **Emotions-Mapping** (Schritt 3): Die Regieanweisungen aus dem Spiel
+  steuern Satzzeichen und Tempo (Zorn → Ausrufezeichen + schneller, Angst →
+  langsamer) — der risikoarme Ausdrucks-Kanal von XTTS-v2.
+- **Ursachen-bewusstes Retry-Tuning** (Schritt 5): Die Retry-Parameter
+  richten sich nach dem erkannten Fehlertyp — End-Babbel wird hart gebremst
+  (niedrigere Temperatur, höhere Penalty, kürzere Länge), Abschneiden
+  bekommt mehr Länge, Wiederholungsschleifen deutlich mehr Penalty. Als
+  Whisper-Modell ist `large-v3` Standard (beste deutsche Transkription).
+- **Artefakt-Schutz**: Satzzeichen-Normalisierung (Ellipsen, Gedankenstriche,
+  verwaiste Punkte), niedrigere Temperatur für kurze Sätze sowie Erkennung
+  von voziertem „Punkt", 2-/3-Wort-Schleifen und End-Fortsetzungen.
 
 ### Qualitätsverantwortung & Community
 
