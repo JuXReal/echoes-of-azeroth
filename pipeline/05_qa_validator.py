@@ -389,7 +389,7 @@ def main():
                         f"[magenta]  ✨ Frontier AI-Repair ({ai_settings['provider']} / {ai_settings['model']}) "
                         f"for {eid} after {attempt} failed attempts...[/magenta]"
                     )
-                    repaired_script, inspector_note = repair_script_with_ai(
+                    repaired_script, inspector_note, ai_usage = repair_script_with_ai(
                         ai_settings,
                         target_text,
                         eval_res["transcript"],
@@ -404,6 +404,8 @@ def main():
                             eid,
                             inspector_note,
                             ok=True,
+                            tokens=ai_usage,
+                            cost_usd=ai_usage.get("cost_usd", 0.0) if ai_usage else 0.0,
                         )
                     else:
                         log_ai_call(

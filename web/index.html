@@ -398,8 +398,24 @@
     .load-more-wrap { text-align: center; margin-top: 1rem; }
 
     /* ---------- Aside ---------- */
-    aside { position: sticky; top: 1rem; display: flex; flex-direction: column; gap: 1rem; }
-    @media (max-width: 1150px) { aside { position: static; } }
+    aside {
+      position: sticky;
+      top: 1rem;
+      max-height: calc(100vh - 2rem);
+      overflow-y: auto;
+      padding-right: 0.35rem;
+      margin-right: -0.35rem;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      scrollbar-width: thin;
+      scrollbar-color: #2a2e38 transparent;
+    }
+    aside::-webkit-scrollbar { width: 6px; }
+    aside::-webkit-scrollbar-thumb { background: #2a2e38; border-radius: 3px; }
+    @media (max-width: 1150px) {
+      aside { position: static; max-height: none; overflow: visible; padding-right: 0; margin-right: 0; }
+    }
     .ov-rows { display: flex; flex-direction: column; gap: 0.6rem; }
     .ov-row { display: flex; justify-content: space-between; font-size: 0.84rem; }
     .ov-row .l { color: var(--text-2); }
@@ -495,6 +511,7 @@
             <span class="t" id="aiProviderMeta"></span>
             <span style="margin-left:auto" id="aiProviderOk"></span>
           </div>
+          <div class="kv-grid" id="aiUsageGrid"></div>
           <div id="aiFeed"></div>
         </div>
       </div>
@@ -575,6 +592,7 @@
                 Optional: Ohne Provider läuft die Pipeline trotzdem — fehlgeschlagene Zeilen werden dann nur nicht KI-repariert.<br />
                 Optional: Works without a provider — failed lines simply won't be AI-repaired.
               </div>
+              <div class="key-hint" id="pricingHint" style="margin-top:0.25rem;"></div>
             </div>
             <div class="field">
               <label for="aiModel">Modell</label>
@@ -664,6 +682,11 @@
     function fmtPct(num) {
       if (num == null || isNaN(num)) return "—";
       return `${(num * 100).toFixed(1)}%`;
+    }
+
+    function fmtNum(num) {
+      if (num == null || isNaN(num)) return "0";
+      return Number(num).toLocaleString("de-DE");
     }
 
     /* ---------- entry status ---------- */
@@ -850,8 +873,21 @@
           <span class="t">${esc(c.at)}</span>
           <span class="provider">${esc(c.provider)}${c.model ? "/" + esc(String(c.model).split("/").pop()) : ""}</span>
           <span class="entry">${esc(c.entry_id)}</span>
+          ${c.tokens && c.tokens.total ? `<span class="entry">${fmtNum(c.tokens.total)} Tok</span>` : ""}
+          ${c.cost_usd ? `<span class="entry">$${c.cost_usd.toFixed(4)}</span>` : ""}
           <span style="margin-left:auto" class="${c.ok ? "ok" : "fail"}">${c.ok ? "✓" : "✕"}</span>
         </div>`).join("") : '<div class="empty-note">Noch keine KI-Aufrufe in diesem Lauf.</div>';
+
+      // Lifetime token & cost usage
+      const usage = (App.live.job && App.live.job.usage) || {};
+      const uTokens = usage.total_tokens || 0;
+      const uCost = usage.cost_usd || 0;
+      $("aiUsageGrid").innerHTML = `
+        <div class="kv"><div class="l">Tokens gesamt</div><div class="v purple">${fmtNum(uTokens)}</div></div>
+        <div class="kv"><div class="l">Prompt</div><div class="v">${fmtNum(usage.prompt_tokens || 0)}</div></div>
+        <div class="kv"><div class="l">Antwort</div><div class="v">${fmtNum(usage.completion_tokens || 0)}</div></div>
+        <div class="kv"><div class="l">Kosten (USD)</div><div class="v ${uCost > 0 ? "gold" : ""}">$${Number(uCost).toFixed(4)}</div></div>
+      `;
 
       // activity feed (aside)
       const feed = [];
@@ -1161,6 +1197,7 @@
         });
       }
       sel.value = s.provider || "none";
+      updatePricingHint();
       $("aiModel").value = s.model || "";
       $("aiBaseUrl").value = s.base_url || "";
       $("aiTrigger").value = s.trigger_after_failures || 3;
@@ -1238,6 +1275,18 @@
     $("speakerFilter").addEventListener("change", () => { App.filters.speaker = $("speakerFilter").value; App.visible = 60; renderGrid(); });
     $("raceFilter").addEventListener("change", () => { App.filters.race = $("raceFilter").value; App.visible = 60; renderGrid(); });
     $("sortSelect").addEventListener("change", () => { App.filters.sort = $("sortSelect").value; App.visible = 60; renderGrid(); });
+    function updatePricingHint() {
+      const s = App.settings;
+      const p = $("aiProvider").value;
+      const pricing = (s && s.pricing && s.pricing[p]) || null;
+      const hint = $("pricingHint");
+      if (!pricing || (!pricing.input && !pricing.output)) {
+        hint.textContent = "";
+        return;
+      }
+      hint.textContent = `Preisbasis (Schätzung): ${pricing.input.toFixed(2)} $ / ${pricing.output.toFixed(2)} $ pro 1M Tokens (Input/Output).`;
+    }
+
     $("aiProvider").addEventListener("change", () => {
       const s = App.settings;
       const p = $("aiProvider").value;
@@ -1255,6 +1304,7 @@
         $("aiModel").dataset.auto = p;
       }
       if (!$("aiBaseUrl").value) $("aiBaseUrl").value = info.base_url || "";
+      updatePricingHint();
     });
 
     /* ---------- boot ---------- */

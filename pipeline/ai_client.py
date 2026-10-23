@@ -34,6 +34,17 @@ PROVIDERS = {
     "ollama":     {"label": "Lokales Ollama",                     "base_url": "http://127.0.0.1:11434",                          "default_model": "qwen2.5:7b"},
 }
 
+# Estimated list prices in USD per 1M tokens (overridable via config.yaml ai.pricing).
+# OpenRouter varies per model — its actual "cost" from the API response wins if present.
+DEFAULT_PRICING_USD_PER_1M = {
+    "none":       {"input": 0.0,  "output": 0.0},
+    "openai":     {"input": 2.50, "output": 10.00},
+    "openrouter": {"input": 0.80, "output": 3.50},
+    "google":     {"input": 0.10, "output": 0.40},
+    "deepseek":   {"input": 0.27, "output": 1.10},
+    "ollama":     {"input": 0.0,  "output": 0.0},
+}
+
 REPAIR_SYSTEM_PROMPT = (
     "Du bist der \"Frontier QA Inspector\" einer World-of-Warcraft-Voiceover-Pipeline "
     "(Coqui XTTS-v2, deutsche Sprache). Ein gesprochener Take wurde mit Faster-Whisper "
@@ -115,6 +126,19 @@ def get_settings(cfg: Optional[Dict] = None) -> Dict:
     except (TypeError, ValueError):
         trigger = 3
 
+    # Per-provider pricing (USD per 1M tokens), overridable in config.yaml ai.pricing
+    pricing = {}
+    pricing_cfg = ai_cfg.get("pricing") or {}
+    for prov, defaults in DEFAULT_PRICING_USD_PER_1M.items():
+        override = pricing_cfg.get(prov) or {}
+        try:
+            pricing[prov] = {
+                "input": float(override.get("input", defaults["input"])),
+                "output": float(override.get("output", defaults["output"])),
+            }
+        except (TypeError, ValueError):
+            pricing[prov] = dict(defaults)
+
     return {
         "provider": provider,
         "api_key": api_key,
@@ -125,6 +149,7 @@ def get_settings(cfg: Optional[Dict] = None) -> Dict:
         "temperature": float(ai_cfg.get("temperature", 0.3)),
         "timeout_sec": int(ai_cfg.get("timeout_sec", 45)),
         "max_tokens": int(ai_cfg.get("max_tokens", 1500)),
+        "pricing": pricing,
     }
 
 
@@ -136,7 +161,15 @@ def is_available(settings: Dict) -> bool:
     return bool(settings.get("api_key"))
 
 
-def _chat_openai_compatible(messages: List[Dict], s: Dict, temperature: float, timeout: int, max_tokens: int) -> str:
+def _estimate_cost(settings: Dict, prompt_t: int, completion_t: int) -> float:
+    """Computes an estimated cost in USD from the configured pricing table."""
+    pricing = (settings.get("pricing") or {}).get(settings.get("provider") or "", {})
+    p_in = float(pricing.get("input", 0.0))
+    p_out = float(pricing.get("output", 0.0))
+    return round((prompt_t * p_in + completion_t * p_out) / 1_000_000.0, 6)
+
+
+def _chat_openai_compatible(messages: List[Dict], s: Dict, temperature: float, timeout: int, max_tokens: int) -> Tuple[str, Dict]:
     resp = requests.post(
         f"{s['base_url']}/chat/completions",
         headers={"Authorization": f"Bearer {s['api_key']}", "Content-Type": "application/json"},
@@ -149,10 +182,23 @@ def _chat_openai_compatible(messages: List[Dict], s: Dict, temperature: float, t
         timeout=timeout,
     )
     resp.raise_for_status()
-    return resp.json()["choices"][0]["message"]["content"].strip()
+    data = resp.json()
+    text = data["choices"][0]["message"]["content"].strip()
+    usage_raw = data.get("usage") or {}
+    prompt_t = int(usage_raw.get("prompt_tokens") or 0)
+    completion_t = int(usage_raw.get("completion_tokens") or 0)
+    total_t = int(usage_raw.get("total_tokens") or 0) or (prompt_t + completion_t)
+    # OpenRouter returns the real cost; otherwise estimate from the pricing table
+    cost = float(usage_raw.get("cost") or data.get("total_cost") or _estimate_cost(s, prompt_t, completion_t))
+    return text, {
+        "prompt_tokens": prompt_t,
+        "completion_tokens": completion_t,
+        "total_tokens": total_t,
+        "cost_usd": round(cost, 6),
+    }
 
 
-def _chat_google(messages: List[Dict], s: Dict, temperature: float, timeout: int, max_tokens: int) -> str:
+def _chat_google(messages: List[Dict], s: Dict, temperature: float, timeout: int, max_tokens: int) -> Tuple[str, Dict]:
     system = next((m["content"] for m in messages if m["role"] == "system"), "")
     user = "\n\n".join(m["content"] for m in messages if m["role"] == "user")
     text = f"{system}\n\n{user}" if system else user
@@ -167,10 +213,20 @@ def _chat_google(messages: List[Dict], s: Dict, temperature: float, timeout: int
     )
     resp.raise_for_status()
     data = resp.json()
-    return data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    reply = data["candidates"][0]["content"]["parts"][0]["text"].strip()
+    meta = data.get("usageMetadata") or {}
+    prompt_t = int(meta.get("promptTokenCount") or 0)
+    completion_t = int(meta.get("candidatesTokenCount") or 0)
+    total_t = int(meta.get("totalTokenCount") or 0) or (prompt_t + completion_t)
+    return reply, {
+        "prompt_tokens": prompt_t,
+        "completion_tokens": completion_t,
+        "total_tokens": total_t,
+        "cost_usd": _estimate_cost(s, prompt_t, completion_t),
+    }
 
 
-def _chat_ollama(messages: List[Dict], s: Dict, temperature: float, timeout: int) -> str:
+def _chat_ollama(messages: List[Dict], s: Dict, temperature: float, timeout: int) -> Tuple[str, Dict]:
     resp = requests.post(
         f"{s['base_url']}/api/chat",
         json={"model": s["model"], "messages": messages, "stream": False,
@@ -178,17 +234,26 @@ def _chat_ollama(messages: List[Dict], s: Dict, temperature: float, timeout: int
         timeout=timeout,
     )
     resp.raise_for_status()
-    return resp.json()["message"]["content"].strip()
+    data = resp.json()
+    reply = data["message"]["content"].strip()
+    prompt_t = int(data.get("prompt_eval_count") or 0)
+    completion_t = int(data.get("eval_count") or 0)
+    return reply, {
+        "prompt_tokens": prompt_t,
+        "completion_tokens": completion_t,
+        "total_tokens": prompt_t + completion_t,
+        "cost_usd": 0.0,
+    }
 
 
-def chat(
+def chat_with_usage(
     messages: List[Dict],
     settings: Dict,
     temperature: Optional[float] = None,
     timeout: Optional[int] = None,
     max_tokens: Optional[int] = None,
-) -> str:
-    """Sends a chat request to the configured provider. Raises on failure."""
+) -> Tuple[str, Dict]:
+    """Sends a chat request; returns (reply_text, usage_dict). Raises on failure."""
     provider = settings.get("provider")
     if provider in (None, "none"):
         raise RuntimeError("No AI provider configured")
@@ -203,6 +268,18 @@ def chat(
     return _chat_openai_compatible(messages, settings, temp, t_out, t_max)
 
 
+def chat(
+    messages: List[Dict],
+    settings: Dict,
+    temperature: Optional[float] = None,
+    timeout: Optional[int] = None,
+    max_tokens: Optional[int] = None,
+) -> str:
+    """Convenience wrapper returning only the reply text."""
+    text, _ = chat_with_usage(messages, settings, temperature, timeout, max_tokens)
+    return text
+
+
 def test_connection(settings: Dict) -> Tuple[bool, str]:
     """Checks the configured AI connection with a minimal ping request."""
     if not settings.get("enabled"):
@@ -212,13 +289,14 @@ def test_connection(settings: Dict) -> Tuple[bool, str]:
             return False, "Kein KI-Provider ausgewählt."
         return False, "API-Key fehlt (oder Base-URL leer bei Ollama)."
     try:
-        reply = chat(
+        reply, usage = chat_with_usage(
             [{"role": "system", "content": "Antworte exakt mit: OK"},
              {"role": "user", "content": "Ping"}],
             settings, temperature=0, timeout=15, max_tokens=8,
         )
         if reply and reply.strip():
-            return True, f"Verbindung OK — Antwort: {reply.strip()[:60]}"
+            tokens = usage.get("total_tokens", 0)
+            return True, f"Verbindung OK — Antwort: {reply.strip()[:60]} ({tokens} Tokens)"
         return False, "Leere Antwort vom Provider erhalten."
     except Exception as e:
         return False, f"Verbindungsfehler: {e}"
@@ -229,29 +307,30 @@ def repair_script_with_ai(
     target_text: str,
     transcript: str,
     entry_context: str = "",
-) -> Tuple[Optional[str], str]:
+) -> Tuple[Optional[str], str, Dict]:
     """
     Frontier QA Inspector: lets the configured AI rewrite the failed line into a
-    phonetically robust German TTS script. Returns (repaired_text, note).
-    Returns (None, reason) when the call fails or the reply is unusable.
+    phonetically robust German TTS script.
+    Returns (repaired_text, note, usage) — usage is {} when the call failed.
+    Returns (None, reason, {}) when the call fails or the reply is unusable.
     """
     if not is_available(settings):
-        return None, "ai_disabled"
+        return None, "ai_disabled", {}
     user = f"Zieltext:\n{target_text}\n\nWhisper-Transkript (fehlerhafter Take):\n{transcript}"
     if entry_context:
         user = f"Kontext: {entry_context}\n\n" + user
     try:
-        raw = chat(
+        raw, usage = chat_with_usage(
             [{"role": "system", "content": REPAIR_SYSTEM_PROMPT},
              {"role": "user", "content": user}],
             settings,
         )
     except Exception as e:
-        return None, f"call_failed: {e}"
+        return None, f"call_failed: {e}", {}
 
     cleaned = re.sub(r"```[a-zA-Z]*\n?", "", raw or "").strip().strip("`").strip()
     if not cleaned:
-        return None, "empty_reply"
+        return None, "empty_reply", usage
     if len(cleaned) < 10 or len(cleaned) > 4000:
-        return None, "suspicious_reply_length"
-    return cleaned, "ai_phonetic_repair"
+        return None, "suspicious_reply_length", usage
+    return cleaned, "ai_phonetic_repair", usage

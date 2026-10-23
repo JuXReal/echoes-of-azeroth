@@ -43,6 +43,7 @@ from pipeline.ai_client import (
 from pipeline.live_state import (
     begin_job as live_begin_job,
     finish_job as live_finish_job,
+    get_usage,
     load as load_live_state,
     set_ai_config as live_set_ai_config,
 )
@@ -202,6 +203,7 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
             "available": ai_is_available(settings),
             "api_key_set": bool(settings["api_key"]),
             "providers": PROVIDERS,
+            "pricing": settings.get("pricing", {}),
         }
 
     def _send_json(self, data: dict, status: int = 200):
@@ -448,6 +450,7 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
                 job["logs"] = list(job.get("logs", []))[-400:]
             job["state"] = load_live_state()
             job["ai"] = self._safe_ai_settings()
+            job["usage"] = get_usage()
             self._send_json(job)
             return
 

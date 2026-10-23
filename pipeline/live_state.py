@@ -48,6 +48,50 @@ def state_file() -> Path:
     return project_root() / "output" / "qa_reports" / "live_state.json"
 
 
+def usage_file() -> Path:
+    return project_root() / "output" / "qa_reports" / "ai_usage.json"
+
+
+def _blank_usage() -> dict:
+    return {
+        "calls": 0,
+        "prompt_tokens": 0,
+        "completion_tokens": 0,
+        "total_tokens": 0,
+        "cost_usd": 0.0,
+    }
+
+
+def get_usage() -> dict:
+    """Lifetime AI token & cost totals (persists across jobs, git-ignored)."""
+    try:
+        with open(usage_file(), "r", encoding="utf-8") as f:
+            data = json.load(f)
+        base = _blank_usage()
+        base.update(data)
+        return base
+    except Exception:
+        return _blank_usage()
+
+
+def add_usage(prompt_tokens: int = 0, completion_tokens: int = 0, cost_usd: float = 0.0, calls: int = 0) -> dict:
+    """Accumulates token/cost totals into ai_usage.json (atomic write)."""
+    with _LOCK:
+        data = get_usage()
+        data["calls"] += int(calls)
+        data["prompt_tokens"] += int(prompt_tokens)
+        data["completion_tokens"] += int(completion_tokens)
+        data["total_tokens"] += int(prompt_tokens) + int(completion_tokens)
+        data["cost_usd"] = round(float(data["cost_usd"]) + float(cost_usd), 6)
+        path = usage_file()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_suffix(path.suffix + ".tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+        tmp.replace(path)
+        return data
+
+
 def _blank() -> dict:
     return {
         "job_id": None,
@@ -74,6 +118,8 @@ def _blank() -> dict:
             "provider": None,
             "model": None,
             "calls": [],
+            "tokens": {"prompt": 0, "completion": 0, "total": 0},
+            "cost_usd": 0.0,
         },
     }
 
@@ -263,12 +309,31 @@ def set_ai_config(enabled: bool, provider: str = None, model: str = None) -> dic
         return data
 
 
-def log_ai_call(provider: str, model: str, entry_id: str, note: str = "", ok: bool = True) -> dict:
+def log_ai_call(
+    provider: str,
+    model: str,
+    entry_id: str,
+    note: str = "",
+    ok: bool = True,
+    tokens: dict = None,
+    cost_usd: float = 0.0,
+) -> dict:
+    """Logs an AI call (per-job feed) and accumulates lifetime token/cost totals."""
+    tokens = tokens or {}
+    prompt_t = int(tokens.get("prompt_tokens") or 0)
+    completion_t = int(tokens.get("completion_tokens") or 0)
+    total_t = int(tokens.get("total_tokens") or 0) or (prompt_t + completion_t)
+    cost = float(cost_usd or tokens.get("cost_usd") or 0.0)
+
     with _LOCK:
         data = load()
         data["ai"]["enabled"] = True
         data["ai"]["provider"] = provider
         data["ai"]["model"] = model
+        data["ai"]["tokens"]["prompt"] = int(data["ai"]["tokens"].get("prompt", 0)) + prompt_t
+        data["ai"]["tokens"]["completion"] = int(data["ai"]["tokens"].get("completion", 0)) + completion_t
+        data["ai"]["tokens"]["total"] = int(data["ai"]["tokens"].get("total", 0)) + total_t
+        data["ai"]["cost_usd"] = round(float(data["ai"].get("cost_usd", 0.0)) + cost, 6)
         data["ai"]["calls"].append({
             "at": time.strftime("%H:%M:%S"),
             "ts": time.time(),
@@ -277,8 +342,16 @@ def log_ai_call(provider: str, model: str, entry_id: str, note: str = "", ok: bo
             "entry_id": entry_id,
             "note": (note or "")[:200],
             "ok": bool(ok),
+            "tokens": {
+                "prompt": prompt_t,
+                "completion": completion_t,
+                "total": total_t,
+            },
+            "cost_usd": round(cost, 6),
         })
         data["ai"]["calls"] = data["ai"]["calls"][-50:]
         data["updated_at"] = time.time()
         _write(data)
-        return data
+
+    add_usage(prompt_tokens=prompt_t, completion_tokens=completion_t, cost_usd=cost, calls=1)
+    return data
