@@ -38,7 +38,7 @@ run_expansion() {
     "$PYTHON" pipeline/03_script_agent.py
     "$PYTHON" pipeline/04_tts_generator.py
     "$PYTHON" pipeline/05_qa_validator.py
-    "$PYTHON" pipeline/06_audio_fx.py --install-to-wow
+    "$PYTHON" pipeline/06_audio_fx.py --install-to-wow --skip-audit
     "$PYTHON" pipeline/07_independent_audit_100.py --sample-size 100
 
     echo "✅ Completed Expansion: $EXP -> Installed ChattyLittleNpc_${EXP}_deDE_voiceovers!"

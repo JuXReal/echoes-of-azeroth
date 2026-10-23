@@ -42,21 +42,37 @@ from rich.table import Table
 
 console = Console()
 
-COMMUNITY_ETHICS_NOTICE_EN = """[bold yellow]⚠️  IMPORTANT COMMUNITY & CURSEFORGE NOTICE (PLEASE READ CAREFULLY)[/bold yellow]
+COMMUNITY_ETHICS_NOTICE_EN = """[bold yellow]⚠️  IMPORTANT COMMUNITY NOTICE & USER QUALITY RESPONSIBILITY[/bold yellow]
 
-[bold white]Please DO NOT blindly upload generated voiceover packs to CurseForge or other addon platforms![/bold white]
+[bold red]1. USER QUALITY RESPONSIBILITY (YOU ARE RESPONSIBLE):[/bold red]
+   [bold white]You as the user are solely responsible for listening to and verifying the quality of the generated audio files![/bold white]
+   AI voice generation (XTTS-v2 / Fast-Whisper) can occasionally produce mispronunciations, hallucinations, or pacing artifacts.
+   This automated audit performs spot-checks, but [bold underline]you must personally listen to audio in the A/B Web Studio[/bold underline] before considering any pack ready.
 
-1. [bold cyan]Respect the Original Creators:[/bold cyan]
-   Full credit and respect belong to [bold]Tuubby[/bold] and the [bold]Chatty Little NPC[/bold] addon team, as well as the dedicated community contributors who created and curated the original English voiceover packs.
+[bold yellow]2. DO NOT BLINDLY UPLOAD TO CURSEFORGE / WAGO:[/bold yellow]
+   Please DO NOT upload generated packs to public addon hubs without explicit approval from the original creators!
+   Full credit and respect belong to [bold]Tuubby[/bold] and the [bold]Chatty Little NPC[/bold] addon team, as well as the community contributors behind the original English voiceover files.
 
-2. [bold cyan]Why the Original English Packs Are Essential:[/bold cyan]
-   This pipeline cannot function without the English Chatty Little NPC voiceover packs. The English `.ogg` files provide:
-   • The unique vocal identity, timbre, and emotional cadence (6–10s 24kHz voice seeds) cloned for each NPC.
-   • The canonical QuestID and NPC file mapping structure (`VoiceoversList.lua`).
-   • The seamless in-game fallback audio when a quest or gossip line is not yet localized.
+[bold cyan]3. Why English Packs Are Strictly Essential:[/bold cyan]
+   • The unique vocal identity, timbre, and emotion (6–10s 24kHz seeds) are cloned from the English original files.
+   • Canonical QuestID and NPC file mapping structure (VoiceoversList.lua).
+   • Seamless in-game fallback when a quest or gossip line is not yet translated."""
 
-3. [bold cyan]Coordinate Before Sharing:[/bold cyan]
-   Only use these generated files for your personal in-game experience, or coordinate directly with the official Chatty Little NPC maintainers via GitHub/Discord after passing this 100-Quest Independent Quality Audit."""
+COMMUNITY_ETHICS_NOTICE_DE = """[bold yellow]⚠️  WICHTIGER COMMUNITY-HINWEIS & QUALITÄTSVERANTWORTUNG DES NUTZERS[/bold yellow]
+
+[bold red]1. DEINE QUALITÄTSVERANTWORTUNG (DER NUTZER HAFTET FÜR DIE QUALITÄT):[/bold red]
+   [bold white]Du als Anwender bist allein dafür verantwortlich, die Qualität der generierten Sprachdateien persönlich anzuhören und gegenzuprüfen![/bold white]
+   KI-Sprachsynthese kann vereinzelt Aussprachefehler, Halluzinationen oder unpassende Pausen enthalten.
+   Dieser automatische 100-Quest-Check dient als Stichprobenfilter – [bold underline]die finale Qualitätskontrolle im A/B-Webstudio liegt bei dir[/bold underline]!
+
+[bold yellow]2. BITTE NICHT BLIND NACH CURSEFORGE ODER WAGO HOCHLADEN:[/bold yellow]
+   Lade keine automatisch generierten Pakete eigenmächtig auf öffentliche Addon-Portale hoch.
+   Respektiere die monatelange Arbeit von [bold]Tuubby[/bold], dem [bold]Chatty Little NPC[/bold]-Team und den englischen Sprechern der Community!
+
+[bold cyan]3. Warum die englischen Sprachpakete zwingend gebraucht werden:[/bold cyan]
+   • Stimmfarben-Cloning (6–10s Seeds) basiert 1:1 auf den englischen Original-WAVs.
+   • Das Dateisystem (VoiceoversList.lua) gibt Quest-IDs und Phasen exakt vor.
+   • Nahtloser In-Game-Fallback für noch nicht übersetzte Quests."""
 
 
 def normalize_text(text: str) -> str:
@@ -121,15 +137,16 @@ def main():
     parser = argparse.ArgumentParser(description="Step 7: Independent 100-Quest Quality Audit.")
     parser.add_argument("--config", default="config.yaml", help="Path to config.yaml")
     parser.add_argument("--sample-size", type=int, default=100, help="Number of quests to audit (default: 100)")
-    parser.add_argument("--seed", type=int, default=42, help="Random seed for reproducible 100-quest sampling")
+    parser.add_argument("--seed", type=int, default=None, help="Optional random seed for reproducible sampling (default: random)")
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parent.parent
     with open(project_root / args.config, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
-    console.rule("[bold cyan]Step 7: Independent 100-Quest Quality Audit & Community Ethics Gate[/bold cyan]")
-    console.print(Panel(COMMUNITY_ETHICS_NOTICE_EN, border_style="yellow", title="🌍 Open-Source & CurseForge Ethics Policy"))
+    console.rule("[bold cyan]Step 7: Mandatory Independent Quality Audit & User Responsibility Gate[/bold cyan]")
+    console.print(Panel(COMMUNITY_ETHICS_NOTICE_EN, border_style="yellow", title="🌍 Open-Source Ethics & User Responsibility"))
+    console.print(Panel(COMMUNITY_ETHICS_NOTICE_DE, border_style="magenta", title="🇩🇪 Nutzer-Qualitätsverantwortung"))
 
     pilot_path = project_root / cfg["paths"]["data_raw_de_text"] / "midnight_de_pilot_20.json"
     final_ogg_dir = project_root / cfg["paths"]["output_final_ogg"]
@@ -150,14 +167,14 @@ def main():
         console.print("[red]Error: No mastered OGG files found in output/final_ogg/.[/red]")
         return
 
-    rng = random.Random(args.seed)
+    rng = random.Random(args.seed) if args.seed is not None else random.Random()
     sample_count = min(args.sample_size, len(entries))
     sampled_entries = rng.sample(entries, sample_count) if len(entries) > sample_count else list(entries)
     sampled_entries.sort(key=lambda x: (x["quest_id"], x["phase"]))
 
     console.print(
-        f"[cyan]• Auditing {len(sampled_entries)} mastered OGG files "
-        f"(Target Audit Size: {args.sample_size} Quests | Currently Available Mastered Files: {len(entries)})...[/cyan]"
+        f"[cyan]• Randomly selected {len(sampled_entries)} mastered OGG files "
+        f"(Target Audit Size: {args.sample_size} Quests | Total Available Files: {len(entries)})...[/cyan]"
     )
 
     # Load Whisper for independent verification on final mastered OGGs
@@ -223,6 +240,10 @@ def main():
 
     avg_cer = sum(x["post_fx_cer"] for x in audit_results) / max(1, len(audit_results))
     summary = {
+        "user_responsibility_notice": (
+            "THE USER IS PERSONALLY RESPONSIBLE FOR LISTENING TO AND VERIFYING AUDIO QUALITY BEFORE SHARING OR USING. "
+            "DER NUTZER IST PERSÖNLICH DAFÜR VERANTWORTLICH, DIE AUDIODATEIEN GEGENZUPRÜFEN UND ANZUHÖREN."
+        ),
         "notice_en": (
             "IMPORTANT: Please DO NOT blindly upload generated voiceover packs to CurseForge! "
             "Respect the work of the Chatty Little NPC addon creators (Tuubby & team) and the "
@@ -247,9 +268,10 @@ def main():
     if len(audit_results) < args.sample_size:
         console.print(
             f"[yellow]ℹ️  Note: Currently {len(audit_results)} quests are rendered (Pilot Run). "
-            f"Once the full expansion batch finishes, re-run this script to audit a full random sample of {args.sample_size} quests![/yellow]"
+            f"Once the full expansion batch finishes, this script audits a full random sample of {args.sample_size} quests![/yellow]"
         )
-    console.print(Panel(COMMUNITY_ETHICS_NOTICE_EN, border_style="yellow", title="⚠️ Reminder Before Sharing Any Files"))
+    console.print(Panel(COMMUNITY_ETHICS_NOTICE_EN, border_style="yellow", title="⚠️ Reminder: User Quality Responsibility & Open-Source Policy"))
+    console.print(Panel(COMMUNITY_ETHICS_NOTICE_DE, border_style="magenta", title="⚠️ Erinnerung: Du bist für die Audio-Qualität verantwortlich"))
 
 
 if __name__ == "__main__":

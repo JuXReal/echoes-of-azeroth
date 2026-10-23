@@ -1,180 +1,234 @@
 # 🎙️ Echoes of Azeroth
 ### *Multi-Language AI Voice Cloning & Mastering Suite for "Chatty Little NPC"*
-*(Tested & Validated with German / `deDE` — Architecture Ready for 17+ Languages)*
+*(Tested & Validated with German / `deDE` — Cross-Lingual Architecture Ready for 17+ Languages)*
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-amber.svg)](https://opensource.org/licenses/MIT)
 [![Python 3.11](https://img.shields.io/badge/Python-3.11-blue.svg)](https://www.python.org/)
 [![TTS: Coqui XTTS-v2](https://img.shields.io/badge/TTS-Coqui_XTTS--v2_FP16-purple.svg)](https://github.com/coqui-ai/TTS)
 [![QA: Faster-Whisper + 100-Quest Audit](https://img.shields.io/badge/QA-Faster--Whisper_%2B_100_Quest_Audit-emerald.svg)](https://github.com/SYSTRAN/faster-whisper)
-[![Languages: Multi-Language (Tested: deDE)](https://img.shields.io/badge/Languages-Multi--Language_(Tested:_deDE)-teal.svg)](#🌐-multi-language-architektur-17-sprachen)
+[![Languages: Multi-Language (Tested: deDE)](https://img.shields.io/badge/Languages-Multi--Language_(Tested:_deDE)-teal.svg)](#-multi-language-architecture-17-languages)
+
+---
+
+### 🌐 Language / Sprache
+* [🇬🇧 English Documentation](#-english-documentation)
+* [🇩🇪 Deutsche Dokumentation](#-deutsche-dokumentation)
+
+---
+
+<a name="-english-documentation"></a>
+# 🇬🇧 English Documentation
+
+## ⚠️ Important Community Notice & User Quality Responsibility
 
 > [!CAUTION]
-> ### 🇬🇧 IMPORTANT COMMUNITY NOTICE (PLEASE READ BEFORE SHARING!)
-> **Please DO NOT blindly upload generated voiceover packs to CurseForge or Wago!**  
-> Please respect the hard work of the **Chatty Little NPC** addon creators (**Tuubby** and contributors) and the dedicated community contributors who created, recorded, and curated the original English voiceover files.
->
-> * **Always run the Independent 100-Quest Quality Audit (`pipeline/07_independent_audit_100.py`)** and listen to the samples in the A/B Web Studio before sharing any generated files.
-> * **Never upload unauthorized or unverified packs under the official *Chatty Little NPC* name on CurseForge.** If you wish to contribute localized packs officially, always coordinate directly with the original *Chatty Little NPC* addon authors first and give full credit to both the addon team and the English voiceover community.
+> ### 1. YOU (THE USER) ARE PERSONALLY RESPONSIBLE FOR AUDIO QUALITY!
+> **This pipeline is an open-source development tool.** AI-based speech synthesis (XTTS-v2) can occasionally produce pronunciation inaccuracies, unwanted hallucinations, or unnatural pauses.
+> * **The automated 100-Quest Audit runs mandatorily after EVERY run** to catch major acoustic flaws and transcription drifts.
+> * **However, YOU as the user are strictly responsible for personally reviewing and listening to your generated voiceover files** using the integrated A/B Web Studio (`http://127.0.0.1:8765`) before using or distributing them.
+
+> [!WARNING]
+> ### 2. DO NOT BLINDLY UPLOAD PACKS TO CURSEFORGE OR WAGO!
+> **Please respect the work of the Chatty Little NPC creators!**  
+> Full credit belongs to **Tuubby** and the **Chatty Little NPC** addon team, as well as the community contributors who created and recorded the original English voice packs.
+> * Never publish generated packs under the official *Chatty Little NPC* brand name on public addon platforms.
+> * If you want to contribute localized voiceovers to the broader community, always coordinate directly with the official *Chatty Little NPC* maintainers via Discord/GitHub first.
 
 ---
 
-## 🌍 Über das Projekt / Overview
+## 💡 Why the English Voiceover Packs Are Mandatory
 
-**Echoes of Azeroth** ist eine vollautomatisierte, reproduzierbare Open-Source-Lokalisierungs-Pipeline für Linux & Windows (WSL2). Sie analysiert die englischen Original-Sprachpakete des beliebten World of Warcraft Addons **"Chatty Little NPC"**, extrahiert daraus saubere 24-kHz-Stimm-Referenzen (Cross-Lingual Zero-Shot Voice Cloning), übersetzt bzw. inszeniert die Zielsprachen-Texte dramaturgisch und generiert ein fertiges, nach **EBU R128 (-16 LUFS)** gemastertes Addon-Paket (`ChattyLittleNpc_<Expansion>_<Locale>_voiceovers`).
+**Echoes of Azeroth** does **not** replace the English voice packs from *Chatty Little NPC*. Instead, the English packs (`ChattyLittleNpc_<Expansion>_voiceovers`) are technically and artistically indispensable:
 
-* **Vollständig getestet & validiert mit:** **Deutsch (`deDE`)**
-* **Unterstützte Erweiterungen:**
-  * `Midnight` (*World of Warcraft: Midnight*)
-  * `The_War_Within` (*The War Within*)
-  * `Dragonflight`
-  * `Battle_for_Azeroth`
-  * `Wrath_of_the_Lich_King`
-  * `Vanilla` (*Classic*)
+1. **Cross-Lingual Voice Cloning Seeds (Timbre & Emotion):**  
+   Lore characters (*Lor'themar Theron*, *Liadrin*, *Turalyon*, *Arator*) and race archetypes have unique voice acting in the English original. Step 2 extracts clean 6–10 second voice seeds (24 kHz Mono WAV) from these English files so that `Coqui XTTS-v2` can recreate the exact same voice timbre, pitch, and age in your target language.
+2. **Canonical Mapping (`VoiceoversList.lua`):**  
+   The English packs define canonical QuestID phases (`QuestID_Desc.ogg`, `QuestID_Prog.ogg`, `QuestID_Comp.ogg`) and gossip hashes (`NPCID_Gossip_<MD5>.ogg`).
+3. **Seamless In-Game Fallback (`voiceoverLanguageFallback`):**  
+   *Chatty Little NPC* automatically plays localized files when present and seamlessly falls back to the English original audio when a quest line or gossip dialogue has not been localized yet.
 
 ---
 
-## 🌐 Multi-Language-Architektur (17+ Sprachen)
+## ⚡ Reference Hardware & Benchmarks
 
-Obwohl die Pipeline primär für **Deutsch (`deDE`)** entwickelt und validiert wurde, ist die gesamte technische Kette **sprachunabhängig (Cross-Lingual)** aufgebaut:
-* **Cross-Lingual Voice Cloning (`Coqui XTTS-v2`):** Klonen einer englischen Referenzstimme in **17 Sprachen** (`de`, `fr`, `es`, `it`, `pt`, `pl`, `ru`, `nl`, `tr`, `cs`, `hu`, `ko`, `zh-cn`, `ja`, `ar`, `hi`) unter Beibehaltung der englischen Original-Stimmfarbe.
-* **Multilinguale QA (`Faster-Whisper`):** Unterstützt automatische Spracherkennung und Wort-/Zeichenfehlerraten-Prüfung (WER/CER) für über 90 Sprachen.
-* **Lokalisierte Quest-Datenquellen (`Wowhead` & `SavedVariables`):** Über Subdomains (`de.wowhead.com`, `fr.wowhead.com`, `es.wowhead.com`, `it.wowhead.com`, `pt.wowhead.com`, `ru.wowhead.com`, `ko.wowhead.com`, `cn.wowhead.com`) sowie den In-Game-Mitschnitt von *Chatty Little NPC* lassen sich beliebige WoW-Client-Sprachen (`deDE`, `frFR`, `esES`, `esMX`, `itIT`, `ptBR`, `ruRU`, `koKR`, `zhCN`) anbinden.
+Measured on the author's primary development workstation running **CachyOS Linux**:
 
----
-
-## 🇬🇧 / 🇩🇪 Warum werden die englischen Original-Sprachdateien zwingend benötigt?
-*(Why You MUST Install the Original English Voiceover Packs)*
-
-**Echoes of Azeroth** ist **kein Ersatz** für die englischen Original-Pakete von *Chatty Little NPC*, sondern baut technisch und künstlerisch direkt auf der Arbeit der englischen Community auf. Die englischen Pakete (`ChattyLittleNpc_<Expansion>_voiceovers`) müssen aus **drei zwingenden Gründen** installiert sein:
-
-1. **Cross-Lingual Zero-Shot Voice Cloning (Stimmfarbe, Charakter & Emotion):**  
-   In WoW haben hunderte Lore-Charaktere (z. B. *Lor'themar Theron*, *Liadrin*, *Turalyon*, *Arator*) sowie Rassen-Archetypen (Blutelfen, Leerenelfen, Amani-Trolle, Untote, Tauren) eine unverwechselbare englische Originalstimme. Schritt 2 unserer Pipeline (`02_voice_extractor.py`) schneidet aus den englischen Original-OGGs die akustisch saubersten 6–10 Sekunden langen Sprach-Seeds (24 kHz Mono WAV) heraus. Nur durch diese englischen Vorlagen kann `Coqui XTTS-v2` exakt dieselbe Stimmfarbe, das Alter und das Timbre des jeweiligen NPCs in deiner Zielsprache reproduzieren!
-2. **Kanonisches Quest-, Phasen- & NPC-Mapping (`VoiceoversList.lua`):**  
-   Die englischen Originalpakete definieren die exakte Dateistruktur (`QuestID_Desc.ogg`, `QuestID_Prog.ogg`, `QuestID_Comp.ogg` sowie `NPCID_Gossip_<MD5>.ogg`). Unser Analyzer (`01_addon_analyzer.py`) liest die englische `VoiceoversList.lua` aus, um genau zu wissen, für welche Quest-IDs und Dialogphasen im Spiel überhaupt Sprachausgabe existiert.
-3. **Nahtloser In-Game Fallback (`voiceoverLanguageFallback`):**  
-   Das Haupt-Addon *Chatty Little NPC* iteriert im Spiel über alle geladenen Sprachpakete (`CLN:IterateVoiceoverPacks()`). Wenn du zum Testen erst einen Teil einer Erweiterung (z. B. den 20-Quest-Piloten) generiert hast, spielt das Addon für alle lokalisierten Treffer deine neuen Sprachdateien ab und greift für noch nicht übersetzte Quests oder Gossip-Zeilen automatisch und absturzfrei auf das englische Originalpaket zurück!
-
----
-
-## ⚡ Referenz-Hardware & Benchmark (Zeit pro Quest)
-
-Die Pipeline wurde auf folgendem Referenz-System unter Linux entwickelt, gemessen und validiert:
-
-| Komponente | Referenz-Spezifikation |
+| Component | Specification |
 | :--- | :--- |
-| **Betriebssystem** | **CachyOS Linux** (Kernel `7.2.9-2-cachyos`, Arch-basiert) |
-| **Prozessor (CPU)** | **AMD Ryzen 9 7950X** (16 Kerne / 32 Threads) |
-| **Grafikkarte (GPU)** | **NVIDIA GeForce RTX 4070 SUPER** (12 GB VRAM, CUDA FP16) |
-| **Arbeitsspeicher (RAM)** | **48 GB DDR5** (`46 GiB` nutzbar) |
+| **OS** | **CachyOS Linux** (Kernel `7.2.9-2-cachyos`, Arch-based) |
+| **Processor (CPU)** | **AMD Ryzen 9 7950X** (16 Cores / 32 Threads) |
+| **Graphics (GPU)** | **NVIDIA GeForce RTX 4070 SUPER** (12 GB VRAM, CUDA FP16) |
+| **RAM** | **48 GB DDR5** (`46 GiB` usable) |
 
-### ⏱️ Gemessene Laufzeiten pro Quest (Durchschnitt bei ~15–25 Sek. Sprechdauer pro Quest)
+### ⏱️ Per-Quest Execution Time (Average speech duration: ~15–25s)
 
-| Pipeline-Schritt | Hardware-Einheit | Zeit pro Quest-Audio | Zeit für 20 Quests (Pilot) | Hochrechnung 1.000 Quests |
+| Step | Hardware Unit | Per Audio File | 20-Quest Pilot | 1,000 Quests Est. |
 | :--- | :--- | :--- | :--- | :--- |
-| **1. Addon-Analyse & Wowhead-Scraping** | CPU (8 Threads) + Netzwerk | **~0,12 s** | ~2,5 Sek. | ~2 Min. |
-| **2. Voice-Seed-Extraktion (24 kHz WAV)** | CPU (`ffmpeg` Denoise/Trim) | **~0,35 s** *(einmalig pro NPC)* | ~7 Sek. | ~2 Min. *(gecacht)* |
-| **3. Skript-Aufbereitung & Phonetik** | CPU / Hybrid-LLM | **~0,05 s** | ~1 Sek. | ~1 Min. |
-| **4. KI-Sprachsynthese (`XTTS-v2` FP16)** | **GPU** (RTX 4070 SUPER) | **~4,5 – 5,5 s** | ~1 Min. 50 Sek. | ~1,4 Std. |
-| **5. In-Loop QA (`Faster-Whisper` + Retry)** | CPU (`int8`, 8 Threads) / GPU | **~1,2 s** *(inkl. 15% Retry-Quote)* | ~28 Sek. | ~20 Min. |
-| **6. Audio-Mastering (`EBU R128` + Rassen-FX)** | CPU (`ffmpeg` 2-Pass + Vorbis) | **~0,45 s** | ~9 Sek. | ~7,5 Min. |
-| **7. Unabhängiger 100-Quest Qualitäts-Test** | CPU (`Faster-Whisper` + `soundfile`) | **~0,20 s** *(Stichprobe 100)* | ~4 Sek. | ~20 Sek. *(für 100 Quests)* |
-| **GESAMT (End-to-End inkl. QA & Mastering)** | **Ryzen 9 7950X + RTX 4070S** | **ca. 6,5 – 7,5 Sekunden / Quest** | **3 Min. 24 Sek.** | **ca. 1 Std. 50 Min.** |
-
-> [!TIP]
-> **Automatische Fortsetzung (Checkpoint-Resume):**  
-> Du musst eine komplette Erweiterung (z. B. *Midnight* mit ~2.411 Quest-Phasen ≈ **ca. 4 bis 4,5 Stunden** Gesamtlaufzeit auf einer RTX 4070 SUPER) **nicht am Stück** durchlaufen lassen! Alle Skripte überspringen bereits erfolgreich geprüfte Dateien automatisch. Du kannst jederzeit pausieren, WoW spielen und später nahtlos weitermachen.
+| **1. Analysis & Scraping** | CPU + Network | ~0.12s | ~2.5s | ~2 min |
+| **2. Voice Seed Extraction** | CPU (FFmpeg) | ~0.35s *(cached)* | ~7s | ~2 min *(cached)* |
+| **3. Script & Phonetics** | CPU / Hybrid LLM | ~0.05s | ~1s | ~1 min |
+| **4. AI Voice Synthesis** | **GPU (RTX 4070S)** | **~4.5 – 5.5s** | ~1 min 50s | ~1.4 hrs |
+| **5. In-Loop Whisper QA** | CPU (int8) / GPU | ~1.2s *(w/ retries)* | ~28s | ~20 min |
+| **6. DSP & Loudnorm (-16 LUFS)** | CPU (FFmpeg Vorbis)| ~0.45s | ~9s | ~7.5 min |
+| **7. Mandatory 100-Quest Audit** | CPU (Whisper + SF) | ~0.20s *(sampled)* | ~4s | ~20s *(100 sample)* |
+| **TOTAL (End-to-End)** | **Ryzen 9 + RTX 4070S** | **~6.5 – 7.5s / quest** | **3m 24s** | **~1h 50m** |
 
 ---
 
-## 🚀 Schnellstart in 2 Schritten (Quickstart)
+## 🚀 Quickstart in 2 Steps
 
-### 1. Ein-Klick-Installer ausführen (`./install.sh`)
-Das mitgelieferte Installer-Skript prüft und installiert automatisch alle Systemabhängigkeiten (`ffmpeg`, `sox`, `python3.11` auf Arch/CachyOS, Ubuntu/Debian oder Fedora), erstellt das isolierte `.venv` und installiert PyTorch (CUDA), Coqui XTTS-v2 sowie Faster-Whisper:
-
+### 1. Run the One-Click Installer
 ```bash
 git clone https://github.com/JuXReal/echoes-of-azeroth.git
 cd echoes-of-azeroth
 ./install.sh
 ```
 
+*(Copies `.env.example` to `.env` if desired to customize your local WoW AddOns path or character placeholder).*
+
+### 2. Launching the Pipeline
+
+You have two simple ways to run the pipeline without memorizing commands:
+
+* **Option A: Web Studio & One-Click Launchpad (`http://127.0.0.1:8765`)**  
+  Start via `./launch_desktop.sh` or `./start.py` (Option `1`). Select your expansion (`Midnight`, `The War Within`, `Dragonflight`, etc.) and click **`▶ START SELECTED ACTION`**.
+* **Option B: Interactive Terminal Menu (`./start.py`)**  
+  Run `./start.py` to pick from the interactive menu:
+  * `[1]` Open Web Studio & Launchpad
+  * `[2]` Run 20-Quest Pilot Test
+  * `[3]` Run Full Expansion Localization
+  * `[4]` Run Independent 100-Quest Quality Audit
+
 ---
 
-### 2. Start-Button im Browser oder Start-Menü nutzen (`./start.py`)
+## 🛡️ Mandatory Automatic 100-Quest Audit (`07_independent_audit_100.py`)
 
-Du hast zwei komfortable Möglichkeiten, die Pipeline zu bedienen – ganz ohne komplizierte Kommandozeilen-Parameter:
+At the conclusion of **EVERY** pipeline run, the **Independent Quality Audit** is executed automatically:
+1. **Random Sampling:** Automatically selects a randomized sample of up to 100 quests from the generated OGG files.
+2. **Post-FX Verification:** Analyzes mastered OGG containers for clipping, dead air, duration, and re-transcribes them via `Faster-Whisper` to compute post-mastering CER / WER.
+3. **User Responsibility Display:** Prints the audit scorecard and explicitly reminds you that you are responsible for testing the audio in-game and via the A/B Studio.
 
-#### Option A: Grafischer Start-Button im Browser (`http://127.0.0.1:8765`)
-Starte das Studio über das Desktop-Icon oder `./start.py` (Option `5`) und öffne **http://127.0.0.1:8765**:
-* Oben im **One-Click Launchpad** wählst du im Dropdown-Menü einfach die Erweiterung (`Midnight`, `The War Within`, `Dragonflight`, etc.) und den Modus aus und klickst auf **`▶ START SELECTED ACTION`**.
-* Ein integriertes Live-Terminal zeigt dir den Fortschritt in Echtzeit, während du darunter im **A/B-Player** direkt das englische Original gegen die neue lokalisierte Sprachausgabe probehören kannst.
+---
 
-#### Option B: Interaktives Terminal-Startmenü (`./start.py`)
-Starte einfach den Launcher und wähle per Zahlentaste deine gewünschte Erweiterung und Aktion:
+<br />
+<hr />
+<br />
 
+<a name="-deutsche-dokumentation"></a>
+# 🇩🇪 Deutsche Dokumentation
+
+## ⚠️ Wichtiger Community-Hinweis & Qualitätsverantwortung
+
+> [!CAUTION]
+> ### 1. DU ALS NUTZER BIST PERSÖNLICH FÜR DIE QUALITÄT VERANTWORTLICH!
+> **Diese Pipeline ist ein Open-Source Entwicklungs-Werkzeug.** KI-Sprachsynthese (XTTS-v2) kann vereinzelt Aussprachefehler, unpassende Betonungen oder Halluzinationen erzeugen.
+> * **Der 100-Quest Qualitätscheck läuft zwingend automatisch nach JEDEM Durchlauf**, um technische Fehler und Ausreißer aufzuspüren.
+> * **Dennoch bist DU als Nutzer dafür verantwortlich, die Audios im integrierten A/B-Webstudio (`http://127.0.0.1:8765`) persönlich anzuhören und gegenzuprüfen**, bevor du die Sprachpakete im Spiel nutzt oder weitergibst!
+
+> [!WARNING]
+> ### 2. BITTE NICHT BLIND NACH CURSEFORGE ODER WAGO HOCHLADEN!
+> **Respektiere die monatelange Arbeit der Chatty Little NPC Entwickler und Community!**  
+> Ein riesiges Dankeschön gebührt **Tuubby** und dem **Chatty Little NPC**-Team sowie allen Sprechern der englischen Originalpakete.
+> * Lade niemals eigenmächtig generierte Pakete unter dem offiziellen Addon-Namen auf CurseForge hoch.
+> * Wenn du lokalisierte Pakete offiziell der WoW-Community bereitstellen möchtest, stimme dich vorher im Discord/GitHub mit den Chatty Little NPC Autoren ab.
+
+---
+
+## 💡 Warum werden die englischen Originaldateien zwingend gebraucht?
+
+**Echoes of Azeroth** ersetzt die englischen Sprachpakete nicht, sondern baut direkt auf ihnen auf:
+
+1. **Cross-Lingual Voice Seeds (Stimmfarbe & Emotion):**  
+   Lore-Charaktere (*Lor'themar*, *Liadrin*, *Turalyon*, *Arator*) und Rassen haben unverwechselbare Stimmen. Schritt 2 schneidet 6–10 Sekunden lange 24kHz-WAV-Seeds aus den englischen Dateien, damit `Coqui XTTS-v2` exakt diese Stimmfarbe auf Deutsch nachbilden kann.
+2. **Kanonische Zuordnung (`VoiceoversList.lua`):**  
+   Das Addon nutzt feste Dateinamen (`QuestID_Desc.ogg`, `QuestID_Prog.ogg`, `QuestID_Comp.ogg` und `NPCID_Gossip_<MD5>.ogg`).
+3. **Nahtloser In-Game Fallback (`voiceoverLanguageFallback`):**  
+   Noch nicht lokalisierte Dialoge greifen im Spiel automatisch und absturzfrei auf das englische Originalpaket zurück.
+
+---
+
+## ⚡ Referenz-Hardware & Benchmarks (Zeit pro Quest)
+
+Entwickelt und gemessen auf folgendem System unter **CachyOS Linux**:
+
+| Hardware | Spezifikation |
+| :--- | :--- |
+| **Betriebssystem** | **CachyOS Linux** (Kernel `7.2.9-2-cachyos`, Arch-Basis) |
+| **Prozessor (CPU)** | **AMD Ryzen 9 7950X** (16 Kerne / 32 Threads) |
+| **Grafikkarte (GPU)** | **NVIDIA GeForce RTX 4070 SUPER** (12 GB VRAM, CUDA FP16) |
+| **Arbeitsspeicher (RAM)** | **48 GB DDR5** (`46 GiB` nutzbar) |
+
+### ⏱️ Laufzeiten pro Quest (Durchschnitt bei ~15–25 Sek. Audiodauer)
+
+| Schritt | Ausführung | Zeit pro Quest | 20-Quest Pilot | 1.000 Quests Est. |
+| :--- | :--- | :--- | :--- | :--- |
+| **1. Analyse & Scraping** | CPU + Web | ~0,12s | ~2,5s | ~2 Min. |
+| **2. Voice-Seed Extraktion** | CPU (FFmpeg) | ~0,35s *(gecacht)* | ~7s | ~2 Min. *(gecacht)* |
+| **3. Skript & Phonetik** | CPU / Hybrid-LLM | ~0,05s | ~1s | ~1 Min. |
+| **4. KI-Sprachsynthese** | **GPU (RTX 4070S)** | **~4,5 – 5,5s** | ~1 Min. 50s | ~1,4 Std. |
+| **5. In-Loop Whisper QA** | CPU (int8) / GPU | ~1,2s *(inkl. Retries)* | ~28s | ~20 Min. |
+| **6. DSP & Loudnorm (-16 LUFS)** | CPU (FFmpeg Vorbis)| ~0,45s | ~9s | ~7,5 Min. |
+| **7. Zwingender 100-Quest Audit** | CPU (Whisper + SF) | ~0,20s *(Stichprobe)* | ~4s | ~20s *(100 Quests)* |
+| **GESAMT (End-to-End)** | **Ryzen 9 + RTX 4070S** | **~6,5 – 7,5s / Quest** | **3 Min. 24s** | **~1 Std. 50 Min.** |
+
+---
+
+## 🚀 Schnellstart in 2 Schritten
+
+### 1. Ein-Klick-Installer ausführen
 ```bash
-./start.py
+git clone https://github.com/JuXReal/echoes-of-azeroth.git
+cd echoes-of-azeroth
+./install.sh
 ```
 
-* **`[1] 20-Quest Pilot-Test`** (~3–4 Min. — ideal zum schnellen Ausprobieren)
-* **`[2] Komplette Erweiterung generieren (Quests)`** (Full Expansion Batch mit Auto-Resume)
-* **`[3] Komplette Erweiterung + Gossip generieren`** (Inklusive gesammelter `SavedVariables`)
-* **`[4] Unabhängiger 100-Quest Qualitäts-Test`** (`07_independent_audit_100.py`)
-* **`[5] A/B Web-Studio & Start-Button öffnen`** (`http://127.0.0.1:8765`)
+### 2. Pipeline bedienen
+
+* **Web-Studio im Browser (`http://127.0.0.1:8765`):**  
+  Starte per Desktop-Icon oder `./launch_desktop.sh`, wähle im Dropdown deine Erweiterung (`Midnight`, `The War Within`, etc.) und klicke auf **`▶ START SELECTED ACTION`**.
+* **Terminal-Startmenü (`./start.py`):**  
+  Bietet eine übersichtliche Ziffernauswahl für Pilot-Tests, Komplett-Generierung und Audits.
 
 ---
 
-## 🔬 Unabhängiger 100-Quest Qualitäts-Test (`07_independent_audit_100.py`)
+## 🛡️ Zwingend automatischer 100-Quest Qualitätscheck
 
-Bevor ein generiertes Sprachpaket im Spiel genutzt oder mit Freunden geteilt wird, führt **Echoes of Azeroth** einen **unabhängigen Qualitäts-Test über bis zu 100 zufällig gezogene Quests** durch (automatisch am Ende von `./run_full_pipeline.sh` oder jederzeit einzeln startbar):
-
-```bash
-.venv/bin/python pipeline/07_independent_audit_100.py --sample-size 100
-```
-
-### Was prüft der unabhängige 100-Quest-Test?
-Im Gegensatz zum internen QA-Loop (der die unkomprimierten Roh-WAVs während der Synthese prüft) inspiziert `07_independent_audit_100.py` die **fertig gemasterten, mit Rassen-Effekten versehenen OGG-Vorbis-Dateien** im Addon-Ausgabeordner:
-1. **Akustische & Technische Prüfung (`soundfile` / `ffprobe`):**
-   * Gültiger OGG-Vorbis-Container & Abtastrate
-   * Keine abgeschnittenen Sätze oder leeren Dateien (Mindestdauer & Sprachaktivitäts-Quote)
-   * Kein digitales Übersteuern (Peak-/RMS-Check nach EBU R128 Mastering)
-2. **Unabhängige Post-FX Spracherkennung (`Faster-Whisper`):**
-   * Transkribiert die fertig gemasterte OGG-Datei erneut und berechnet die Zeichen-Abweichung (**CER**) zum Ziel-Skript.
-3. **Qualitäts-Zertifikat & Englischer Community-Hinweis:**
-   * Erstellt einen detaillierten Prüfbericht unter `output/qa_reports/independent_audit_100_report.json` (inklusive Gesamtnote **A+ bis F**) und zeigt ihn live im Web-Studio an.
-   * Erinnert bei jedem Durchlauf auf Englisch daran, **keine ungeprüften Pakete blind auf CurseForge hochzuladen** und die Arbeit der *Chatty Little NPC*-Entwickler sowie der englischen Community zu respektieren.
+Nach **JEDEM** Durchlauf der Pipeline startet automatisch Schritt 7 (`07_independent_audit_100.py`):
+1. **Zufallsauswahl:** Wählt bei jedem Durchlauf eine frische Stichprobe von bis zu 100 Quests aus den fertigen OGG-Dateien.
+2. **Abrechnung & Post-FX Transkription:** Prüft Übersteuerung (Clipping), Leerlauf (Dead Air), Dauer und transkribiert die fertigen OGG-Dateien mit `Faster-Whisper` gegen das Skript.
+3. **Nutzer-Verantwortung:** Gibt den Prüfbericht aus und erinnert daran, dass die Endabnahme im Web-Studio beim Nutzer liegt.
 
 ---
 
-## 🏗️ Architektur & 7-Stufen-Workflow
+## 🏗️ Repository-Struktur
 
 ```text
-wow-chatty-de-pipeline/
+echoes-of-azeroth/
 ├── install.sh                       # 1-Klick System- & Python-.venv-Installer
-├── start.py                         # Interaktives Start-Menü (Auswahl für Einsteiger)
-├── launch_desktop.sh                # Desktop-Starter (startet Web-Studio & öffnet Browser)
-├── run_full_pipeline.sh             # Vollautomatischer Batch-Runner (inkl. 100-Quest Audit)
+├── start.py                         # Interaktives Terminal-Startmenü
+├── launch_desktop.sh                # Desktop-Starter für Browser & Studio
+├── run_full_pipeline.sh             # Vollautomatischer Batch-Runner
 ├── config.yaml                      # Zentrale Konfiguration (Pfade, LUFS, Rassen-FX, QA)
 ├── pipeline/
-│   ├── 01_addon_analyzer.py         # Lua-Parser, Custom-MD5-Hasher & Multi-Thread Wowhead-Scraper
-│   ├── 02_voice_extractor.py        # Schneidet & entrauscht 24kHz Mono WAV Voice-Seeds (6-10s)
-│   ├── 03_script_agent.py           # Zweistufiges LLM-Routing + Warcraft-Phonetik-Regisseur
-│   ├── 04_tts_generator.py          # Lokale CUDA FP16 Batch-Synthese (Coqui XTTS-v2)
-│   ├── 05_qa_validator.py           # In-Loop Faster-Whisper ASR + Levenshtein Auto-Re-Synthesis
-│   ├── 06_audio_fx.py               # FFmpeg Rassen-DSP, EBU R128 (-16 LUFS) & Addon-Packager
-│   └── 07_independent_audit_100.py  # Unabhängiger 100-Quest End-to-End Qualitäts-Prüfer
+│   ├── 01_addon_analyzer.py         # Lua-Parser, Custom-MD5 & Wowhead-Scraper
+│   ├── 02_voice_extractor.py        # Schneidet 24kHz Mono WAV Voice-Seeds (6-10s)
+│   ├── 03_script_agent.py           # Zweistufiges LLM-Routing & Phonetik-Regisseur
+│   ├── 04_tts_generator.py          # Lokale CUDA FP16 Batch-Synthese (XTTS-v2)
+│   ├── 05_qa_validator.py           # In-Loop Whisper ASR + Levenshtein Re-Synthesis
+│   ├── 06_audio_fx.py               # FFmpeg Rassen-DSP, EBU R128 (-16 LUFS) & Addon-Export
+│   └── 07_independent_audit_100.py  # Zwingender 100-Quest End-to-End Qualitätscheck (Random)
 ├── web/
-│   ├── index.html                   # A/B-Hörvergleich-Studio + 1-Klick Start-Button Launchpad
-│   └── serve.py                     # Lokaler Webserver + Background-Job-Controller (Port 8765)
+│   ├── index.html                   # A/B-Hörvergleich-Studio + One-Click Launchpad
+│   └── serve.py                     # Lokaler Webserver & Background-Job-Runner (Port 8765)
 └── output/
-    ├── final_ogg/                   # Gemasterte OGG-Dateien
-    ├── qa_reports/                  # JSON-Prüfberichte (In-Loop QA & 100-Quest Audit)
-    └── ChattyLittleNpc_<Exp>_deDE_voiceovers/ # Fertiges WoW-Addon für Interface/AddOns/
+    └── qa_reports/                  # JSON-Prüfberichte der Audits
 ```
 
 ---
 
-## 🤝 Credits & Danksagung
+## 🤝 Credits & License
 
-* **Tuubby & das Chatty Little NPC Team** für das großartige World of Warcraft Addon [Chatty Little NPC](https://www.curseforge.com/wow/addons/chatty-little-npc).
-* **Die englische Chatty Little NPC Voiceover-Community** für tausende Stunden Arbeit beim Aufnehmen, Kuratieren und Bereitstellen der englischen Original-Sprachpakete, ohne die dieses Stimm-Klon-Projekt nicht möglich wäre.
-* **Coqui AI (XTTS-v2)** & **SYSTRAN (Faster-Whisper)** für die lokalen Open-Source-KI-Modelle.
+* **Chatty Little NPC**: Tuubby & Team ([CurseForge](https://www.curseforge.com/wow/addons/chatty-little-npc)).
+* **English Voiceover Community**: Unverzichtbare Sprecher und Kuratoren der englischen Originalpakete.
+* **Open Source AI**: [Coqui XTTS-v2](https://github.com/coqui-ai/TTS), [Faster-Whisper](https://github.com/SYSTRAN/faster-whisper), [FFmpeg](https://ffmpeg.org/).
+* **License**: MIT

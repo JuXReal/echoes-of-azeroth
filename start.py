@@ -74,7 +74,7 @@ def run_pipeline(expansion: str, limit: int, scrape_all: bool, include_gossip: b
         [PYTHON_BIN, "pipeline/03_script_agent.py"],
         [PYTHON_BIN, "pipeline/04_tts_generator.py"],
         [PYTHON_BIN, "pipeline/05_qa_validator.py"],
-        [PYTHON_BIN, "pipeline/06_audio_fx.py", "--install-to-wow"],
+        [PYTHON_BIN, "pipeline/06_audio_fx.py", "--install-to-wow", "--skip-audit"],
         [PYTHON_BIN, "pipeline/07_independent_audit_100.py", "--sample-size", "100"],
     ]
 

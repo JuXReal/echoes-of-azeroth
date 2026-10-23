@@ -163,6 +163,7 @@ def main():
     parser = argparse.ArgumentParser(description="Step 6: FFmpeg Race-FX, EBU R128 Loudnorm & OGG Addon Export.")
     parser.add_argument("--config", default="config.yaml", help="Path to config.yaml")
     parser.add_argument("--install-to-wow", action="store_true", default=True, help="Copy generated deDE pack to WoW AddOns dir")
+    parser.add_argument("--skip-audit", action="store_true", help="Skip the mandatory Step 7 100-quest audit")
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parent.parent
@@ -250,6 +251,15 @@ def main():
             shutil.rmtree(live_target)
         shutil.copytree(addon_pack_dir, live_target)
         console.print(f"[bold cyan]✓ Installed live into WoW AddOns folder -> {live_target}[/bold cyan]")
+
+    # Mandatory Quality Assurance Gate: Automatically run Step 7
+    if not args.skip_audit:
+        audit_script = project_root / "pipeline" / "07_independent_audit_100.py"
+        if audit_script.exists():
+            console.print("\n[bold yellow]🛡️  Triggering Mandatory Step 7 Quality Audit...[/bold yellow]")
+            import subprocess, sys
+            py_bin = sys.executable
+            subprocess.run([py_bin, str(audit_script), "--sample-size", "100"], check=False)
 
 
 if __name__ == "__main__":

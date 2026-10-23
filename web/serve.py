@@ -184,7 +184,7 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
                     [py, "pipeline/03_script_agent.py"],
                     [py, "pipeline/04_tts_generator.py"],
                     [py, "pipeline/05_qa_validator.py"],
-                    [py, "pipeline/06_audio_fx.py", "--install-to-wow"],
+                    [py, "pipeline/06_audio_fx.py", "--install-to-wow", "--skip-audit"],
                     [py, "pipeline/07_independent_audit_100.py", "--sample-size", "100"],
                 ]
             elif mode == "full_expansion":
@@ -194,7 +194,7 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
                     [py, "pipeline/03_script_agent.py"],
                     [py, "pipeline/04_tts_generator.py"],
                     [py, "pipeline/05_qa_validator.py"],
-                    [py, "pipeline/06_audio_fx.py", "--install-to-wow"],
+                    [py, "pipeline/06_audio_fx.py", "--install-to-wow", "--skip-audit"],
                     [py, "pipeline/07_independent_audit_100.py", "--sample-size", "100"],
                 ]
             else:
