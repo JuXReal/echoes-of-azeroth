@@ -167,6 +167,31 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/api/regenerate_entry":
+            length = int(self.headers.get("Content-Length", "0"))
+            body = json.loads(self.rfile.read(length).decode("utf-8")) if length > 0 else {}
+            entry_id = body.get("entry_id")
+            if not entry_id:
+                self._send_json({"error": "entry_id is required"}, status=400)
+                return
+
+            with JOB_LOCK:
+                if CURRENT_JOB["running"]:
+                    self._send_json({"error": "A job is already running!"}, status=409)
+                    return
+
+            script = str(self.project_root / "pipeline" / "regenerate_single.sh")
+            cmds = [["bash", script, str(entry_id)]]
+
+            t = threading.Thread(
+                target=_run_background_commands,
+                args=(cmds, self.project_root, f"regenerate_{entry_id}", "Single Entry"),
+                daemon=True,
+            )
+            t.start()
+            self._send_json({"status": "started", "entry_id": entry_id})
+            return
+
         if parsed.path == "/api/start_job":
             length = int(self.headers.get("Content-Length", "0"))
             body = json.loads(self.rfile.read(length).decode("utf-8")) if length > 0 else {}
@@ -184,6 +209,8 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
 
             if mode == "audit_100":
                 cmds = [[py, "pipeline/07_independent_audit_100.py", "--sample-size", "100"]]
+            elif mode == "audit_full":
+                cmds = [[py, "pipeline/07_independent_audit_100.py", "--sample-size", "0"]]
             elif mode == "pilot_20":
                 cmds = [
                     [py, "pipeline/01_addon_analyzer.py", "--expansion", expansion, "--limit", "20"],

@@ -168,13 +168,13 @@ def main():
         return
 
     rng = random.Random(args.seed) if args.seed is not None else random.Random()
-    sample_count = min(args.sample_size, len(entries))
-    sampled_entries = rng.sample(entries, sample_count) if len(entries) > sample_count else list(entries)
+    sample_count = len(entries) if args.sample_size == 0 else min(args.sample_size, len(entries))
+    sampled_entries = rng.sample(entries, sample_count) if (args.sample_size != 0 and len(entries) > sample_count) else list(entries)
     sampled_entries.sort(key=lambda x: (x["quest_id"], x["phase"]))
 
+    audit_target_desc = f"{len(sampled_entries)} Quests (FULL 100% Quality Audit)" if args.sample_size == 0 else f"{len(sampled_entries)} Quests (Sample Size: {args.sample_size})"
     console.print(
-        f"[cyan]• Randomly selected {len(sampled_entries)} mastered OGG files "
-        f"(Target Audit Size: {args.sample_size} Quests | Total Available Files: {len(entries)})...[/cyan]"
+        f"[cyan]• Running Audit on {audit_target_desc} | Total Available Files: {len(entries)}...[/cyan]"
     )
 
     # Load Whisper for independent verification on final mastered OGGs

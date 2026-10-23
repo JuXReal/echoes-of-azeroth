@@ -366,11 +366,13 @@
           <option value="Vanilla">Expansion: Vanilla / Classic (1.0)</option>
         </select>
         <select id="launchMode" class="filter-select">
-          <option value="audit_100">🛡️ Run Independent 100-Quest Quality Audit</option>
+          <option value="audit_100">🛡️ Run Independent 100-Quest Random Audit</option>
+          <option value="audit_full">🔬 Run FULL 100% Quality Control Audit (All Mastered Files)</option>
           <option value="pilot_20">🧪 Run 20-Quest Benchmark Pilot + Audit</option>
           <option value="full_expansion">🚀 Run Full Expansion Batch (All Quests + Gossip + 100-Quest Audit)</option>
         </select>
         <button id="startJobBtn" class="start-btn" onclick="triggerJob()">▶ START SELECTED ACTION</button>
+        <button id="fullAuditBtn" class="start-btn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);" onclick="triggerFullAudit()">🔬 FULL QUALITY CONTROL</button>
       </div>
     </div>
     <pre id="jobConsole" class="job-console"></pre>
@@ -431,6 +433,51 @@
       } catch (_) {}
 
       renderCards();
+    }
+
+    async function triggerFullAudit() {
+      const expansion = document.getElementById('launchExpansion').value;
+      const btn = document.getElementById('fullAuditBtn');
+      const con = document.getElementById('jobConsole');
+
+      btn.disabled = true;
+      con.style.display = 'block';
+      con.textContent = `Starting FULL 100% Quality Control Audit for all mastered ${expansion} files...`;
+
+      const res = await fetch('/api/start_job', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ expansion, mode: 'audit_full' })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        con.textContent = `Error: ${err.error || 'Could not start full audit'}`;
+        btn.disabled = false;
+        return;
+      }
+      if (!pollTimer) {
+        pollTimer = setInterval(pollJobStatus, 1200);
+      }
+    }
+
+    async function regenerateEntry(entryId) {
+      const con = document.getElementById('jobConsole');
+      con.style.display = 'block';
+      con.textContent = `Triggering single re-generation for entry ${entryId}...`;
+
+      const res = await fetch('/api/regenerate_entry', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ entry_id: entryId })
+      });
+      if (!res.ok) {
+        const err = await res.json();
+        alert(`Konnte Eintrag nicht neu generieren: ${err.error || 'Fehler'}`);
+        return;
+      }
+      if (!pollTimer) {
+        pollTimer = setInterval(pollJobStatus, 1200);
+      }
     }
 
     async function triggerJob() {
@@ -604,6 +651,7 @@
                 <div class="ab-buttons">
                   <button class="btn-mini en" onclick="playPairAB('${e.entry_id}')">🔁 A/B Direktvergleich (EN ➔ DE)</button>
                   <button class="btn-mini de" onclick="document.getElementById('audio-de-${e.entry_id}').play()">▶ Nur DE</button>
+                  <button class="btn-mini" style="background: rgba(255, 77, 109, 0.15); border-color: rgba(255, 77, 109, 0.4); color: #ff859c;" onclick="regenerateEntry('${e.entry_id}')">🔄 Diese Quest neu generieren</button>
                   <a class="btn-mini" href="/audio/seed/${seedFile}" target="_blank" style="text-decoration:none;">🧬 24kHz Voice-Seed WAV</a>
                 </div>
               </div>
