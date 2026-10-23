@@ -598,10 +598,10 @@
             <div class="field">
               <label for="aiModel">Modell</label>
               <div class="model-row">
-                <input type="text" id="aiModel" list="aiModelList" placeholder="z. B. deepseek-chat" style="flex:1;" />
-                <button class="btn" onclick="listModels()" style="padding:0.5rem 0.85rem;white-space:nowrap;">Modelle laden</button>
+                <select id="aiModel" style="flex:1;"></select>
+                <button class="btn" id="aiModelsBtn" onclick="listModels()" style="padding:0.5rem 0.85rem;white-space:nowrap;">Modelle laden</button>
               </div>
-              <datalist id="aiModelList"></datalist>
+              <input type="text" id="aiModelCustom" placeholder="Eigene Modell-ID …" style="display:none;margin-top:0.35rem;" />
             </div>
             <div class="field">
               <label for="aiBaseUrl">Base-URL (optional)</label>
@@ -749,11 +749,39 @@
       try {
         App.settings = await api("/api/settings");
         fillSettingsForm();
-      } catch (e) { console.warn("settings", e); }
+      } catch (e) { /* old server or not ready — static fallbacks stay */ }
+    }
+
+    /* ---------- stale server detection ---------- */
+    async function checkServerVersion() {
+      try {
+        await api("/api/version");
+        App.serverMismatchShown = false;
+        const b = $("mismatchBanner");
+        if (b) b.remove();
+      } catch (err) {
+        if (App.serverMismatchShown) return;
+        App.serverMismatchShown = true;
+        const b = document.createElement("div");
+        b.className = "ethics-banner";
+        b.id = "mismatchBanner";
+        b.style.borderColor = "rgba(255,97,97,0.55)";
+        b.innerHTML = '<div><b>Server-Version veraltet:</b> Der laufende Server kennt die neuen Endpoints (/api/state, /api/settings) noch nicht. Bitte neu starten: <code>./launch_desktop.sh</code> (erkennt alte Prozesse automatisch und ersetzt sie).</div>';
+        const live = $("livePanel");
+        live.parentNode.insertBefore(b, live);
+      }
     }
 
     /* ---------- live state polling ---------- */
     async function pollLive() {
+      if (App.serverMismatchShown) {
+        // Server is outdated — poll /api/version instead until it is restarted
+        if (Date.now() - (App.lastVerCheck || 0) > 20000) {
+          App.lastVerCheck = Date.now();
+          checkServerVersion();
+        }
+        return;
+      }
       try {
         const st = await api("/api/state");
         const prevRunning = App.live.running;
@@ -767,7 +795,10 @@
           loadPlaylist();
           loadAudit();
         }
-      } catch (e) { /* server briefly unavailable */ }
+      } catch (e) {
+        App.lastVerCheck = Date.now();
+        checkServerVersion();
+      }
     }
 
     function renderLive() {
@@ -1190,6 +1221,49 @@
     }
 
     /* ---------- settings ---------- */
+    const MODEL_DEFAULTS = {
+      none:       { base_url: "",                                              default_model: "" },
+      openai:     { base_url: "https://api.openai.com/v1",                       default_model: "gpt-4o" },
+      openrouter: { base_url: "https://openrouter.ai/api/v1",                    default_model: "anthropic/claude-3.5-sonnet" },
+      google:     { base_url: "https://generativelanguage.googleapis.com/v1beta", default_model: "gemini-2.0-flash" },
+      deepseek:   { base_url: "https://api.deepseek.com/v1",                     default_model: "deepseek-chat" },
+      ollama:     { base_url: "http://127.0.0.1:11434",                          default_model: "qwen2.5:7b" },
+    };
+    const CUSTOM_MODEL = "__custom__";
+
+    function currentModel() {
+      const sel = $("aiModel");
+      if (sel.value === CUSTOM_MODEL) return $("aiModelCustom").value.trim();
+      return sel.value || "";
+    }
+
+    function setModelSelect(models, selectedId) {
+      const sel = $("aiModel");
+      sel.innerHTML = "";
+      models.forEach((m) => {
+        const label = m.pricing
+          ? `${m.id} · $${Number(m.pricing.input).toFixed(2)}/$ ${Number(m.pricing.output).toFixed(2)} pro 1M`
+          : m.id;
+        sel.appendChild(new Option(label, m.id));
+      });
+      sel.appendChild(new Option("Eigene Modell-ID …", CUSTOM_MODEL));
+      const known = models.some((m) => m.id === selectedId);
+      if (known && selectedId) {
+        sel.value = selectedId;
+        $("aiModelCustom").style.display = "none";
+        $("aiModelCustom").value = "";
+      } else if (selectedId) {
+        sel.value = CUSTOM_MODEL;
+        $("aiModelCustom").value = selectedId;
+        $("aiModelCustom").style.display = "";
+      } else {
+        sel.value = "";
+        $("aiModelCustom").style.display = "none";
+        $("aiModelCustom").value = "";
+      }
+      updatePricingHint();
+    }
+
     function fillSettingsForm() {
       const s = App.settings;
       if (!s) return;
@@ -1203,8 +1277,14 @@
         });
       }
       sel.value = s.provider || "none";
-      updatePricingHint();
-      $("aiModel").value = s.model || "";
+      // Model dropdown: saved model + provider default + custom entry
+      const defaults = MODEL_DEFAULTS[s.provider] || { default_model: "" };
+      const modelList = [];
+      if (s.model) modelList.push({ id: s.model, pricing: null });
+      if (defaults.default_model && defaults.default_model !== s.model) {
+        modelList.push({ id: defaults.default_model, pricing: null });
+      }
+      setModelSelect(modelList, s.model || defaults.default_model || "");
       $("aiBaseUrl").value = s.base_url || "";
       $("aiTrigger").value = s.trigger_after_failures || 3;
       $("aiKey").value = "";
@@ -1218,7 +1298,7 @@
     async function saveSettings() {
       const body = {
         provider: $("aiProvider").value,
-        model: $("aiModel").value.trim(),
+        model: currentModel(),
         base_url: $("aiBaseUrl").value.trim(),
         enabled: $("aiEnabled").checked,
         trigger_after_failures: parseInt($("aiTrigger").value, 10) || 3,
@@ -1242,7 +1322,7 @@
     async function testSettings() {
       const body = {
         provider: $("aiProvider").value,
-        model: $("aiModel").value.trim(),
+        model: currentModel(),
         base_url: $("aiBaseUrl").value.trim(),
         enabled: $("aiEnabled").checked,
       };
@@ -1284,7 +1364,7 @@
     function updatePricingHint() {
       const s = App.settings;
       const p = $("aiProvider").value;
-      const model = $("aiModel").value.trim();
+      const model = currentModel();
       // Prefer the exact model pricing from the catalog (e.g. OpenRouter)
       let pricing = App.modelPricing[model] || null;
       let source = "";
@@ -1318,17 +1398,13 @@
           body: JSON.stringify(body),
         });
         if (r.ok && r.models && r.models.length) {
-          const dl = $("aiModelList");
-          dl.innerHTML = "";
           App.modelPricing = {};
           r.models.forEach((m) => {
-            const opt = document.createElement("option");
-            opt.value = m.id;
-            dl.appendChild(opt);
             if (m.pricing) App.modelPricing[m.id] = m.pricing;
           });
+          const keep = currentModel() || "";
+          setModelSelect(r.models, keep);
           toast(r.message, "ok");
-          updatePricingHint();
         } else {
           out.className = "test-result fail";
           out.textContent = r.message || "Keine Modelle gefunden.";
@@ -1345,28 +1421,25 @@
     $("aiProvider").addEventListener("change", () => {
       const s = App.settings;
       const p = $("aiProvider").value;
-      const staticDefaults = {
-        none:       { base_url: "",                                              default_model: "" },
-        openai:     { base_url: "https://api.openai.com/v1",                       default_model: "gpt-4o" },
-        openrouter: { base_url: "https://openrouter.ai/api/v1",                    default_model: "anthropic/claude-3.5-sonnet" },
-        google:     { base_url: "https://generativelanguage.googleapis.com/v1beta", default_model: "gemini-2.0-flash" },
-        deepseek:   { base_url: "https://api.deepseek.com/v1",                     default_model: "deepseek-chat" },
-        ollama:     { base_url: "http://127.0.0.1:11434",                          default_model: "qwen2.5:7b" },
-      };
-      const info = (s && s.providers && s.providers[p]) || staticDefaults[p] || {};
+      const info = (s && s.providers && s.providers[p]) || MODEL_DEFAULTS[p] || {};
       // Always reset to the provider default — stale models from another
       // provider cause 404 "Model Not Exist" errors.
-      $("aiModel").value = info.default_model || "";
-      $("aiModel").dataset.auto = p;
-      if (!$("aiBaseUrl").value) $("aiBaseUrl").value = info.base_url || "";
-      $("aiModelList").innerHTML = "";
       App.modelPricing = {};
+      setModelSelect(
+        info.default_model ? [{ id: info.default_model, pricing: null }] : [],
+        info.default_model || ""
+      );
+      if (!$("aiBaseUrl").value) $("aiBaseUrl").value = info.base_url || "";
+    });
+    $("aiModel").addEventListener("change", () => {
+      $("aiModelCustom").style.display = $("aiModel").value === CUSTOM_MODEL ? "" : "none";
       updatePricingHint();
     });
-    $("aiModel").addEventListener("input", updatePricingHint);
+    $("aiModelCustom").addEventListener("input", updatePricingHint);
 
     /* ---------- boot ---------- */
     (async function boot() {
+      await checkServerVersion();
       await Promise.all([loadSettings(), loadAudit(), loadPlaylist()]);
       await pollLive();
       setInterval(pollLive, 1200);

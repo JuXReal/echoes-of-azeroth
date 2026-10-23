@@ -51,6 +51,11 @@ from pipeline.live_state import (
 
 console = Console()
 
+# Bumped whenever the web API surface changes — launch_desktop.sh and the UI
+# use this to detect (and restart) stale server processes that predate the
+# current endpoints (/api/state, /api/settings, /api/settings/models, ...).
+SERVER_VERSION = 3
+
 ENV_MANAGED_KEYS = (
     "AI_PROVIDER",
     "AI_API_KEY",
@@ -458,6 +463,13 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
                 self._send_json(data)
             else:
                 self._send_json({"audited_count": 0, "passed_count": 0, "results": []})
+            return
+
+        if path == "/api/version":
+            self._send_json({
+                "server_version": SERVER_VERSION,
+                "endpoints": ["playlist", "audit", "state", "settings", "settings/test", "settings/models", "start_job", "regenerate_entry"],
+            })
             return
 
         if path == "/api/state":
