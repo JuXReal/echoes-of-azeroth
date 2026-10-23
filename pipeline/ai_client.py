@@ -183,7 +183,9 @@ def _chat_openai_compatible(messages: List[Dict], s: Dict, temperature: float, t
     )
     resp.raise_for_status()
     data = resp.json()
-    text = data["choices"][0]["message"]["content"].strip()
+    message = data["choices"][0]["message"] or {}
+    text = (message.get("content") or "").strip()
+    reasoning = (message.get("reasoning_content") or "").strip()
     usage_raw = data.get("usage") or {}
     prompt_t = int(usage_raw.get("prompt_tokens") or 0)
     completion_t = int(usage_raw.get("completion_tokens") or 0)
@@ -195,6 +197,9 @@ def _chat_openai_compatible(messages: List[Dict], s: Dict, temperature: float, t
         "completion_tokens": completion_t,
         "total_tokens": total_t,
         "cost_usd": round(cost, 6),
+        # Reasoning models (e.g. deepseek-reasoner) sometimes spend the whole
+        # output budget on reasoning and return an empty content field.
+        "empty_content": bool(reasoning and not text),
     }
 
 
@@ -333,6 +338,8 @@ def repair_script_with_ai(
 
     cleaned = re.sub(r"```[a-zA-Z]*\n?", "", raw or "").strip().strip("`").strip()
     if not cleaned:
+        if usage.get("empty_content"):
+            return None, "empty_reply (Reasoning-Modell: nur Gedankengänge, keine Antwort — Chat-Modell wie 'deepseek-chat' nutzen)", usage
         return None, "empty_reply", usage
     if len(cleaned) < 10 or len(cleaned) > 4000:
         return None, "suspicious_reply_length", usage

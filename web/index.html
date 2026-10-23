@@ -839,12 +839,19 @@
 
       // progress
       const counts = st.counts || {};
-      const total = counts.total || 0;
-      const processed = counts.processed || 0;
-      const pct = total > 0 ? Math.min(100, (processed / total) * 100) : (st.step ? 0 : 0);
+      let total = counts.total || 0;
+      let processed = counts.processed || 0;
+      // Fallback: older pipeline processes report stale counters — prefer the
+      // number of entries that already carry a QA result (flushed every 10).
+      const qaCount = App.entries.filter((e) => e.qa_result).length;
+      if (st.step && st.step.key === "qa" && qaCount > processed) {
+        processed = qaCount;
+        if (!total) total = App.entries.length;
+      }
+      const pct = total > 0 ? Math.min(100, (processed / total) * 100) : 0;
       $("progressFill").style.width = `${pct}%`;
-      $("liveCounts").textContent = `${processed} / ${total}`;
-      $("liveEta").textContent = fmtEta(st.eta_seconds);
+      $("liveCounts").textContent = `${processed} / ${total || App.entries.length || 0}`;
+      $("liveEta").textContent = qaCount > (counts.processed || 0) && st.step && st.step.key === "qa" ? "—" : fmtEta(st.eta_seconds);
       $("liveStepLabel").textContent = st.step
         ? `Schritt ${st.step.index}/${totalSteps} · ${st.step.label}${st.step.done ? " ✓" : ""}`
         : "Bereit";
@@ -951,12 +958,15 @@
 
       const liveSt = App.live.state || {};
       const liveC = liveSt.counts || {};
-      const liveQaActive = App.live.running && liveSt.step && liveSt.step.key === "qa" && liveC.total > 0;
+      const withQa = es.filter((e) => e.qa_result);
+      // Live counts are only trusted when they match the flushed QA results —
+      // older pipeline processes report stale/partial counters.
+      let liveQaActive = App.live.running && liveSt.step && liveSt.step.key === "qa" && liveC.total > 0;
+      if (liveQaActive && withQa.length > (liveC.processed || 0)) liveQaActive = false;
 
       let total = totalAll;
       let problems = 0;
       let passed = 0;
-      const withQa = es.filter((e) => e.qa_result);
       if (liveQaActive) {
         // During validation the live state is the freshest source of truth
         total = liveC.total;
@@ -1104,7 +1114,9 @@
           <div class="players">
             <div class="player-row de">
               <div class="lang-tag"><span class="main">DE Lokalisiert</span><span class="sub">${e.final_ogg_duration_sec || e.raw_tts_duration_sec || "?"}s · OGG −16 LUFS</span></div>
-              <audio class="de-audio" controls preload="none" src="/audio/de/${esc(encodeURIComponent(e.target_ogg_filename))}"></audio>
+              ${(e.final_ogg_duration_sec != null || e.final_ogg_path)
+                ? `<audio class="de-audio" controls preload="none" src="/audio/de/${esc(encodeURIComponent(e.target_ogg_filename))}"></audio>`
+                : `<span class="key-hint" style="margin:auto 0;">Noch nicht gerendert (Schritt 6)</span>`}
             </div>
             <div class="player-row">
               <div class="lang-tag"><span class="main">EN Original</span><span class="sub">${e.source_duration_sec || "?"}s · Referenz</span></div>
@@ -1151,8 +1163,8 @@
     function playAB(id) {
       stopAllAudio();
       const card = document.querySelector(`#card-${CSS.escape(id)}`);
-      const en = card ? card.querySelectorAll("audio")[1] : null;
-      const de = card ? card.querySelectorAll("audio")[0] : null;
+      const de = card ? card.querySelector("audio.de-audio") : null;
+      const en = card ? Array.from(card.querySelectorAll("audio")).find((a) => !a.classList.contains("de-audio")) : null;
       if (!en || !de) return;
       en.play().then(() => {}).catch(() => {});
       en.onended = () => setTimeout(() => de.play().catch(() => {}), 350);

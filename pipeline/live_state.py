@@ -257,23 +257,20 @@ def increment(
     current: dict = None,
 ) -> dict:
     """Adds to per-step counters, recomputes ETA, optionally updates current entry."""
-    changes = {}
-    counts = {}
-    if processed:
-        counts["processed"] = processed
-    if passed:
-        counts["passed"] = passed
-    if failed:
-        counts["failed"] = failed
-    if retried:
-        counts["retried"] = retried
-    if ai_repaired:
-        counts["ai_repaired"] = ai_repaired
-    if counts:
-        changes["counts"] = counts
-    if current is not None:
-        changes["current"] = current
-    return update(**changes)
+    with _LOCK:
+        data = load()
+        c = data.setdefault("counts", {})
+        c["processed"] = int(c.get("processed", 0)) + int(processed)
+        c["passed"] = int(c.get("passed", 0)) + int(passed)
+        c["failed"] = int(c.get("failed", 0)) + int(failed)
+        c["retried"] = int(c.get("retried", 0)) + int(retried)
+        c["ai_repaired"] = int(c.get("ai_repaired", 0)) + int(ai_repaired)
+        if current is not None:
+            data["current"] = current
+        _compute_eta(data)
+        data["updated_at"] = time.time()
+        _write(data)
+        return data
 
 
 def finish_step(ok: bool = True) -> dict:

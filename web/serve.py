@@ -434,6 +434,23 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
         parsed = urllib.parse.urlparse(self.path)
         path = urllib.parse.unquote(parsed.path)
 
+        if path == "/favicon.ico":
+            svg = (
+                b'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">'
+                b'<rect width="64" height="64" rx="14" fill="#0b0c10"/>'
+                b'<circle cx="32" cy="26" r="9" fill="none" stroke="#f0b93c" stroke-width="4"/>'
+                b'<path d="M18 46c4-8 8-12 14-12s10 4 14 12" fill="none" stroke="#f0b93c" stroke-width="4" stroke-linecap="round"/>'
+                b'</svg>'
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "image/svg+xml")
+            self.send_header("Content-Length", str(len(svg)))
+            self.send_header("Cache-Control", "max-age=86400")
+            self.end_headers()
+            if send_body:
+                self.wfile.write(svg)
+            return
+
         if path in ("/", "/index.html"):
             self._send_file(self.project_root / "web" / "index.html", send_body=send_body)
             return
