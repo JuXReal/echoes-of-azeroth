@@ -475,12 +475,41 @@ def main():
                 e["tts_script_text"] = repaired_script
 
                 base_temp = e.get("prosody", {}).get("tts_temperature", cfg["tts"]["temperature"])
-                new_temp = max(0.35, base_temp + attempt * float(qa_cfg.get("retry_temperature_step", -0.08)))
-                new_rep = float(cfg["tts"]["repetition_penalty"]) + attempt * float(qa_cfg.get("retry_repetition_penalty_step", 1.5))
+                base_rep = float(cfg["tts"]["repetition_penalty"])
+                len_pen = float(cfg["tts"].get("length_penalty", 1.0))
                 # Hohe Stimmlagen neigen zu Wiederholungsschleifen — härter unterdrücken
                 f0 = e.get("seed_mean_f0_hz")
                 if f0 and float(f0) > float(cfg["tts"].get("high_voice_f0_threshold_hz", 240)):
-                    new_rep += 2.0
+                    base_rep += 2.0
+
+                # Ursachen-bewusstes Tuning: je nach Fehlertyp die passende Schraube drehen
+                reason = eval_res["hallucination_reason"]
+                if reason.startswith(("trailing", "babble")):
+                    # Über-Generierung: hart bremsen (Temperatur runter, Penalty rauf, kürzer animieren)
+                    new_temp = max(0.3, min(base_temp, 0.55) - 0.06 * attempt)
+                    new_rep = base_rep + 4.0 + 2.0 * attempt
+                    new_len_pen = 0.92
+                    tuning_note = f"overgen: temp={new_temp:.2f} rep={new_rep:.1f} lenpen={new_len_pen}"
+                elif reason.startswith("truncated"):
+                    # Unter-Generierung: länger animieren, leicht mehr Varianz
+                    new_temp = min(0.95, base_temp + 0.05)
+                    new_rep = base_rep
+                    new_len_pen = 1.15
+                    tuning_note = f"undergen: temp={new_temp:.2f} lenpen={new_len_pen}"
+                elif reason.startswith("repeated"):
+                    # Wiederholungsschleife: Penalty massiv erhöhen
+                    new_temp = max(0.3, base_temp - 0.06 * attempt)
+                    new_rep = base_rep + 5.0 + 2.0 * attempt
+                    new_len_pen = len_pen
+                    tuning_note = f"repeat: temp={new_temp:.2f} rep={new_rep:.1f}"
+                else:
+                    # Klassische Fehlaussprache: Standard-Strategie
+                    new_temp = max(0.35, base_temp + attempt * float(qa_cfg.get("retry_temperature_step", -0.08)))
+                    new_rep = base_rep + attempt * float(qa_cfg.get("retry_repetition_penalty_step", 1.5))
+                    new_len_pen = len_pen
+                    tuning_note = f"mispron: temp={new_temp:.2f} rep={new_rep:.1f}"
+
+                console.print(f"[dim]      ↻ Tuning: {tuning_note}[/dim]")
                 # On attempt >= 2, also try the canonical archetype seed WAV if line seed had acoustic artifacts
                 ref_wav = e.get("archetype_voice_wav", e["reference_voice_wav"]) if attempt >= 2 else e["reference_voice_wav"]
 
@@ -492,9 +521,11 @@ def main():
                     repetition_penalty=new_rep,
                     speed=1.0,
                     pause_ms=210,
+                    length_penalty=new_len_pen,
                 )
                 e["raw_tts_duration_sec"] = dur
                 eval_res["frontier_inspector_action"] = inspector_note
+                eval_res["tuning"] = tuning_note
 
         # Restore best attempt WAV
         best_backup = wav_path.with_name(f"{eid}_best.wav")
@@ -511,6 +542,7 @@ def main():
             "effective_error": best_eval["effective_error"],
             "transcript": best_eval["transcript"],
             "hallucination": best_eval["hallucination"],
+            "hallucination_reason": best_eval["hallucination_reason"],
             "history": attempt_history,
             "ai_used": ai_used,
             "ai_provider": ai_provider,

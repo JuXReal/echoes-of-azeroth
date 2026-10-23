@@ -100,6 +100,7 @@ class XTTSBatchSynthesizer:
         repetition_penalty: Optional[float] = None,
         speed: Optional[float] = None,
         pause_ms: int = 160,
+        length_penalty: Optional[float] = None,
     ) -> float:
         """
         Synthesizes a German dialogue line sentence-by-sentence using cached speaker
@@ -109,7 +110,7 @@ class XTTSBatchSynthesizer:
         temp = float(temperature if temperature is not None else self.tts_cfg.get("temperature", 0.62))
         rep_pen = float(repetition_penalty if repetition_penalty is not None else self.tts_cfg.get("repetition_penalty", 5.0))
         spd = float(speed if speed is not None else self.tts_cfg.get("speed", 1.02))
-        len_pen = float(self.tts_cfg.get("length_penalty", 1.0))
+        len_pen = float(length_penalty if length_penalty is not None else self.tts_cfg.get("length_penalty", 1.0))
         top_k = int(self.tts_cfg.get("top_k", 50))
         top_p = float(self.tts_cfg.get("top_p", 0.85))
 

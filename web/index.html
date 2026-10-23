@@ -1286,10 +1286,14 @@
         const aiNote = qa.ai_used
           ? `<span class="badge race" style="background:var(--purple-soft);color:#cf9bff;border-color:var(--purple-border);">${esc(t("ai_repaired_badge"))} (${esc(qa.ai_provider || "AI")})</span>`
           : "";
+        const reasonChip = (!ok && qa.hallucination_reason)
+          ? `<span class="badge" style="background:var(--red-soft);color:var(--red);border:1px solid rgba(255,97,97,0.3);font-family:var(--mono);">${esc(qa.hallucination_reason)}</span>`
+          : "";
         qaLine = `
           <div class="qa-line">
             <span class="qa-txt ${ok ? "ok" : "bad"}">${ok ? "✓" : "✕"} ${esc(t("qa_match"))} ${match.toFixed(1)}% · ${qa.attempts || 1} ${esc(attemptsTxt)}</span>
             ${aiNote}
+            ${reasonChip}
             <div class="matchbar"><i style="width:${match}%;background:${barColor};"></i></div>
           </div>`;
       } else {
