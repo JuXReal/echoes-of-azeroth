@@ -73,6 +73,19 @@ llm_routing:
       "Anduin Wrynn": "Anduin Rinn"
       "Sylvanas": "Silwanas"
 
+ai:
+  # Frontier-AI repair after repeated QA failures (Step 5 escalation).
+  # SECURITY: API keys are NEVER stored here — they live in the git-ignored
+  # .env file (AI_API_KEY) and are managed via the Web Studio settings panel.
+  enabled: true                    # Master switch (AI_ENABLED in .env overrides)
+  provider: "none"                 # none | openai | openrouter | google | deepseek | ollama (AI_PROVIDER overrides)
+  base_url: ""                     # Optional override (AI_BASE_URL overrides)
+  model: ""                        # Optional override (AI_MODEL overrides)
+  trigger_after_failures: 3        # Call the AI repair after this many failed QA attempts
+  temperature: 0.3
+  timeout_sec: 45
+  max_tokens: 1500
+
 tts:
   engine: "xtts_v2"
   model_name: "tts_models/multilingual/multi-dataset/xtts_v2"

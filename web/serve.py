@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 """
-Step 7: Local A/B Listening Comparison & Launchpad Web Server (web/serve.py)
-----------------------------------------------------------------------------
+A/B Listening Studio & Launchpad Web Server (web/serve.py)
+-----------------------------------------------------------
 Serves the interactive HTML5 A/B comparison & One-Click Launchpad UI (`web/index.html`)
 and provides:
-  - `GET  /api/playlist`     -> Full JSON metadata of all localized quests, scripts, QA scores & FX
-  - `GET  /api/audit`        -> Independent 100-Quest Quality Audit report (`independent_audit_100_report.json`)
-  - `GET  /api/job_status`   -> Live status & console log tail of any background pipeline/audit job
-  - `POST /api/start_job`    -> Starts a pipeline run or 100-Quest Audit from the Web UI Start Button
-  - `GET  /audio/en/<file>`  -> Original English OGG from ChattyLittleNpc_<Expansion>_voiceovers
-  - `GET  /audio/de/<file>`  -> Newly synthesized & mastered German OGG from output/final_ogg
-  - `GET  /audio/seed/<file>`-> Extracted 24kHz Mono reference WAV voice seed
+  - `GET  /api/playlist`        -> Full JSON metadata of all localized quests, scripts, QA scores & FX
+  - `GET  /api/audit`           -> Independent 100-Quest Quality Audit report
+  - `GET  /api/state`           -> LIVE pipeline state (current quest, step, counts, ETA, AI calls)
+  - `GET  /api/job_status`      -> Job status & console log tail (compat)
+  - `POST /api/start_job`       -> Starts a pipeline run or 100-Quest Audit
+  - `POST /api/regenerate_entry`-> Regenerates a single entry (TTS + QA + FX)
+  - `GET  /api/settings`        -> Safe AI settings (NO API keys returned)
+  - `POST /api/settings`        -> Saves AI settings to the git-ignored .env file
+  - `POST /api/settings/test`   -> Tests the AI provider connection
+  - `GET  /audio/en/<file>`     -> Original English OGG
+  - `GET  /audio/de/<file>`     -> Synthesized & mastered German OGG
+  - `GET  /audio/seed/<file>`   -> Extracted 24kHz Mono reference WAV voice seed
 """
 
 import argparse
@@ -28,7 +33,30 @@ from pathlib import Path
 import yaml
 from rich.console import Console
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from pipeline.ai_client import (
+    PROVIDERS,
+    get_settings as get_ai_settings,
+    is_available as ai_is_available,
+    test_connection as ai_test_connection,
+)
+from pipeline.live_state import (
+    begin_job as live_begin_job,
+    finish_job as live_finish_job,
+    load as load_live_state,
+    set_ai_config as live_set_ai_config,
+)
+
 console = Console()
+
+ENV_MANAGED_KEYS = (
+    "AI_PROVIDER",
+    "AI_API_KEY",
+    "AI_BASE_URL",
+    "AI_MODEL",
+    "AI_ENABLED",
+    "AI_REPAIR_AFTER_FAILURES",
+)
 
 # Global background job state for the Web UI Start Button
 JOB_LOCK = threading.Lock()
@@ -41,6 +69,58 @@ CURRENT_JOB = {
     "exit_code": None,
     "logs": [],
 }
+
+# Playlist file cache (mtime-based) — the JSON is several MB and changes per step
+PLAYLIST_CACHE = {"mtime_ns": None, "data": None}
+
+
+def _env_file(project_root: Path) -> Path:
+    return project_root / ".env"
+
+
+def read_env_lines(project_root: Path) -> dict:
+    """Returns {key: (line_with_key, value)} for managed keys present in .env."""
+    lines = {}
+    path = _env_file(project_root)
+    if not path.exists():
+        return lines
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        stripped = raw.strip()
+        if not stripped or stripped.startswith("#") or "=" not in stripped:
+            continue
+        k, _, v = stripped.partition("=")
+        k = k.strip()
+        if k in ENV_MANAGED_KEYS:
+            lines[k] = {"raw": raw, "value": v.strip().strip('"').strip("'")}
+    return lines
+
+
+def write_env_settings(project_root: Path, updates: dict) -> None:
+    """Atomically updates AI_* keys in .env, preserving everything else. No key logging."""
+    path = _env_file(project_root)
+    existing = path.read_text(encoding="utf-8") if path.exists() else ""
+    existing_lines = existing.splitlines()
+
+    out_lines = []
+    written = set()
+    for raw in existing_lines:
+        stripped = raw.strip()
+        if stripped and not stripped.startswith("#") and "=" in stripped:
+            k = stripped.split("=", 1)[0].strip()
+            if k in updates:
+                if updates[k] is not None:
+                    out_lines.append(f'{k}="{updates[k]}"')
+                written.add(k)
+                continue
+        out_lines.append(raw)
+
+    for k in ENV_MANAGED_KEYS:
+        if k in updates and updates[k] is not None and k not in written:
+            out_lines.append(f'{k}="{updates[k]}"')
+
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text("\n".join(out_lines) + "\n", encoding="utf-8")
+    tmp.replace(path)
 
 
 def _run_background_commands(commands: list, project_root: Path, mode: str, expansion: str):
@@ -57,6 +137,8 @@ def _run_background_commands(commands: list, project_root: Path, mode: str, expa
         CURRENT_JOB["finished_at"] = None
         CURRENT_JOB["exit_code"] = None
         CURRENT_JOB["logs"] = [f"[{time.strftime('%H:%M:%S')}] Starting job: {mode} ({expansion})..."]
+
+    live_begin_job(mode=mode, expansion=expansion)
 
     exit_code = 0
     for cmd in commands:
@@ -83,8 +165,8 @@ def _run_background_commands(commands: list, project_root: Path, mode: str, expa
 
             with JOB_LOCK:
                 CURRENT_JOB["logs"].append(clean_line)
-                if len(CURRENT_JOB["logs"]) > 250:
-                    CURRENT_JOB["logs"] = CURRENT_JOB["logs"][-250:]
+                if len(CURRENT_JOB["logs"]) > 400:
+                    CURRENT_JOB["logs"] = CURRENT_JOB["logs"][-400:]
         proc.wait()
         if proc.returncode != 0:
             exit_code = proc.returncode
@@ -96,6 +178,8 @@ def _run_background_commands(commands: list, project_root: Path, mode: str, expa
         CURRENT_JOB["exit_code"] = exit_code
         CURRENT_JOB["logs"].append(f"\n[{time.strftime('%H:%M:%S')}] Job finished with exit code {exit_code}.")
 
+    live_finish_job(ok=exit_code == 0)
+
 
 class ABComparisonHandler(BaseHTTPRequestHandler):
     project_root: Path = Path(".")
@@ -103,6 +187,22 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
 
     def log_message(self, fmt, *args):
         pass
+
+    def _safe_ai_settings(self) -> dict:
+        """AI settings WITHOUT the API key — safe to send to the browser."""
+        settings = get_ai_settings(self.cfg)
+        return {
+            "provider": settings["provider"],
+            "model": settings["model"],
+            "base_url": settings["base_url"],
+            "enabled": settings["enabled"],
+            "trigger_after_failures": settings["trigger_after_failures"],
+            "temperature": settings["temperature"],
+            "timeout_sec": settings["timeout_sec"],
+            "available": ai_is_available(settings),
+            "api_key_set": bool(settings["api_key"]),
+            "providers": PROVIDERS,
+        }
 
     def _send_json(self, data: dict, status: int = 200):
         raw = json.dumps(data, ensure_ascii=False, indent=2).encode("utf-8")
@@ -192,6 +292,61 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
             self._send_json({"status": "started", "entry_id": entry_id})
             return
 
+        if parsed.path == "/api/settings":
+            length = int(self.headers.get("Content-Length", "0"))
+            body = json.loads(self.rfile.read(length).decode("utf-8")) if length > 0 else {}
+            updates = {}
+            provider = body.get("provider")
+            if provider is not None:
+                provider = str(provider).strip().lower()
+                if provider not in PROVIDERS:
+                    self._send_json({"error": f"Unknown provider: {provider}"}, status=400)
+                    return
+                updates["AI_PROVIDER"] = provider
+            if body.get("model") is not None:
+                updates["AI_MODEL"] = str(body.get("model", "")).strip()
+            if body.get("base_url") is not None:
+                updates["AI_BASE_URL"] = str(body.get("base_url", "")).strip().rstrip("/")
+            if body.get("enabled") is not None:
+                updates["AI_ENABLED"] = "true" if bool(body.get("enabled")) else "false"
+            if body.get("trigger_after_failures") is not None:
+                try:
+                    trigger = max(1, int(body.get("trigger_after_failures")))
+                except (TypeError, ValueError):
+                    self._send_json({"error": "trigger_after_failures must be an integer >= 1"}, status=400)
+                    return
+                updates["AI_REPAIR_AFTER_FAILURES"] = str(trigger)
+            # API key: only stored if a non-empty value is submitted; NEVER returned
+            if body.get("api_key"):
+                updates["AI_API_KEY"] = str(body["api_key"]).strip()
+
+            write_env_settings(self.project_root, updates)
+            # Apply to this process so subsequently spawned pipeline jobs inherit it
+            for k, v in updates.items():
+                if v is not None:
+                    os.environ[k] = v
+            self._send_json({"status": "saved", **self._safe_ai_settings()})
+            return
+
+        if parsed.path == "/api/settings/test":
+            length = int(self.headers.get("Content-Length", "0"))
+            body = json.loads(self.rfile.read(length).decode("utf-8")) if length > 0 else {}
+            settings = get_ai_settings(self.cfg)
+            # Allow testing with unsaved values (e.g. a freshly typed key)
+            if body.get("provider") is not None:
+                settings["provider"] = str(body["provider"]).strip().lower()
+            if body.get("model") is not None:
+                settings["model"] = str(body["model"]).strip()
+            if body.get("base_url") is not None:
+                settings["base_url"] = str(body["base_url"]).strip().rstrip("/")
+            if body.get("api_key"):
+                settings["api_key"] = str(body["api_key"]).strip()
+            if body.get("enabled") is not None:
+                settings["enabled"] = bool(body["enabled"])
+            ok, message = ai_test_connection(settings)
+            self._send_json({"ok": ok, "message": message})
+            return
+
         if parsed.path == "/api/start_job":
             length = int(self.headers.get("Content-Length", "0"))
             body = json.loads(self.rfile.read(length).decode("utf-8")) if length > 0 else {}
@@ -256,11 +411,20 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
 
         if path == "/api/playlist":
             pilot_path = self.project_root / self.cfg["paths"]["data_raw_de_text"] / "midnight_de_pilot_20.json"
-            if pilot_path.exists():
-                data = json.loads(pilot_path.read_text(encoding="utf-8"))
-                self._send_json(data)
-            else:
+            if not pilot_path.exists():
                 self._send_json({"error": "Playlist not generated yet."}, status=404)
+                return
+            try:
+                mtime_ns = pilot_path.stat().st_mtime_ns
+            except OSError:
+                mtime_ns = None
+            if PLAYLIST_CACHE["mtime_ns"] == mtime_ns and PLAYLIST_CACHE["data"] is not None:
+                self._send_json(PLAYLIST_CACHE["data"])
+                return
+            data = json.loads(pilot_path.read_text(encoding="utf-8"))
+            PLAYLIST_CACHE["mtime_ns"] = mtime_ns
+            PLAYLIST_CACHE["data"] = data
+            self._send_json(data)
             return
 
         if path == "/api/audit":
@@ -272,9 +436,25 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
                 self._send_json({"audited_count": 0, "passed_count": 0, "results": []})
             return
 
+        if path == "/api/state":
+            with JOB_LOCK:
+                job = dict(CURRENT_JOB)
+                job["logs"] = list(job.get("logs", []))[-400:]
+            job["state"] = load_live_state()
+            job["ai"] = self._safe_ai_settings()
+            self._send_json(job)
+            return
+
+        if path == "/api/settings":
+            self._send_json(self._safe_ai_settings())
+            return
+
         if path == "/api/job_status":
             with JOB_LOCK:
-                self._send_json(dict(CURRENT_JOB))
+                job = dict(CURRENT_JOB)
+                job["logs"] = list(job.get("logs", []))[-400:]
+            job["state"] = load_live_state()
+            self._send_json(job)
             return
 
         if path.startswith("/audio/en/"):
@@ -314,11 +494,25 @@ def main():
     with open(project_root / args.config, "r", encoding="utf-8") as f:
         cfg = yaml.safe_load(f)
 
+    # Make .env (AI keys, WoW paths) available to this process and spawned jobs
+    from pipeline.ai_client import load_env
+    load_env(project_root / ".env")
+
     host = args.host or cfg.get("web", {}).get("host", "127.0.0.1")
     port = args.port or int(cfg.get("web", {}).get("port", 8765))
 
     ABComparisonHandler.project_root = project_root
     ABComparisonHandler.cfg = cfg
+
+    try:
+        settings = get_ai_settings(cfg)
+        live_set_ai_config(
+            enabled=ai_is_available(settings),
+            provider=settings.get("provider"),
+            model=settings.get("model") if ai_is_available(settings) else None,
+        )
+    except Exception:
+        pass
 
     server = ThreadingHTTPServer((host, port), ABComparisonHandler)
     console.print(f"[bold green]🎙️  Echoes of Azeroth (DE) Studio & Launchpad running at:[/bold green] [bold cyan]http://{host}:{port}[/bold cyan]")
