@@ -299,7 +299,10 @@ def test_connection(settings: Dict) -> Tuple[bool, str]:
             return True, f"Verbindung OK — Antwort: {reply.strip()[:60]} ({tokens} Tokens)"
         return False, "Leere Antwort vom Provider erhalten."
     except Exception as e:
-        return False, f"Verbindungsfehler: {e}"
+        msg = f"Verbindungsfehler: {e}"
+        if "404" in str(e):
+            msg += " — Modell oder Base-URL prüfen ('Modelle laden' verwenden)."
+        return False, msg
 
 
 def repair_script_with_ai(
@@ -334,3 +337,84 @@ def repair_script_with_ai(
     if len(cleaned) < 10 or len(cleaned) > 4000:
         return None, "suspicious_reply_length", usage
     return cleaned, "ai_phonetic_repair", usage
+
+
+def _openrouter_pricing_to_per_1m(entry: Dict) -> Optional[Dict]:
+    """Converts OpenRouter's per-token pricing strings into USD per 1M tokens."""
+    p = entry.get("pricing") or {}
+    try:
+        return {
+            "input": round(float(p.get("prompt") or 0) * 1_000_000, 4),
+            "output": round(float(p.get("completion") or 0) * 1_000_000, 4),
+        }
+    except (TypeError, ValueError):
+        return None
+
+
+def list_models(settings: Dict) -> Tuple[bool, List[Dict], str]:
+    """
+    Fetches the model catalog of the configured provider.
+    Returns (ok, models, message); models = [{"id": str, "pricing": {input, output}|None}].
+    """
+    provider = settings.get("provider")
+    if provider in (None, "none"):
+        return False, [], "Kein Provider ausgewählt."
+    if provider == "ollama":
+        if not settings.get("base_url"):
+            return False, [], "Ollama Base-URL fehlt."
+        try:
+            resp = requests.get(f"{settings['base_url']}/api/tags", timeout=settings.get("timeout_sec", 45))
+            resp.raise_for_status()
+            models = [{"id": m.get("name", ""), "pricing": None} for m in (resp.json().get("models") or [])]
+            models = [m for m in models if m["id"]]
+            return (True, models, f"{len(models)} Modelle von Ollama geladen.") if models else (False, [], "Ollama meldet keine installierten Modelle.")
+        except Exception as e:
+            return False, [], f"Fehler beim Laden der Modelle: {e}"
+    if provider == "google":
+        if not settings.get("api_key"):
+            return False, [], "API-Key fehlt."
+        try:
+            resp = requests.get(
+                f"{settings['base_url']}/models",
+                params={"key": settings["api_key"], "pageSize": 200},
+                timeout=settings.get("timeout_sec", 45),
+            )
+            resp.raise_for_status()
+            out = []
+            for m in resp.json().get("models") or []:
+                methods = m.get("supportedGenerationMethods") or []
+                if "generateContent" not in methods:
+                    continue
+                name = m.get("name") or ""
+                if "gemini" not in name.lower():
+                    continue
+                out.append({"id": name.split("/", 1)[-1], "pricing": None})
+            return (True, out, f"{len(out)} Modelle von Google Gemini geladen.") if out else (False, [], "Keine Gemini-Modelle gefunden.")
+        except Exception as e:
+            return False, [], f"Fehler beim Laden der Modelle: {e}"
+    # OpenAI-compatible (openai, deepseek, openrouter, custom /v1 endpoints)
+    if not settings.get("api_key"):
+        return False, [], "API-Key fehlt."
+    try:
+        resp = requests.get(
+            f"{settings['base_url']}/models",
+            headers={"Authorization": f"Bearer {settings['api_key']}"},
+            timeout=settings.get("timeout_sec", 45),
+        )
+        resp.raise_for_status()
+        data = resp.json().get("data") or []
+        models = []
+        for m in data:
+            entry = {"id": m.get("id") or "", "pricing": None}
+            if provider == "openrouter":
+                entry["pricing"] = _openrouter_pricing_to_per_1m(m)
+            if entry["id"]:
+                models.append(entry)
+        if not models:
+            return False, [], "Der Provider meldet keine Modelle."
+        return True, models, f"{len(models)} Modelle geladen."
+    except Exception as e:
+        hint = ""
+        if "404" in str(e):
+            hint = " — Prüfe Base-URL und Modell (bei DeepSeek z. B. 'deepseek-chat')."
+        return False, [], f"Fehler beim Laden der Modelle: {e}{hint}"

@@ -427,6 +427,7 @@
     .form label { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--text-3); }
     .form .field { display: flex; flex-direction: column; gap: 0.25rem; }
     .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
+    .model-row { display: flex; gap: 0.5rem; align-items: center; }
     .form input, .form select { width: 100%; }
     .key-hint { font-size: 0.7rem; color: var(--text-3); line-height: 1.45; }
     .key-hint b { color: var(--green); }
@@ -596,7 +597,11 @@
             </div>
             <div class="field">
               <label for="aiModel">Modell</label>
-              <input type="text" id="aiModel" placeholder="z. B. gpt-4o" />
+              <div class="model-row">
+                <input type="text" id="aiModel" list="aiModelList" placeholder="z. B. deepseek-chat" style="flex:1;" />
+                <button class="btn" onclick="listModels()" style="padding:0.5rem 0.85rem;white-space:nowrap;">Modelle laden</button>
+              </div>
+              <datalist id="aiModelList"></datalist>
             </div>
             <div class="field">
               <label for="aiBaseUrl">Base-URL (optional)</label>
@@ -643,6 +648,7 @@
       live: { state: null, running: false },
       settings: null,
       visible: 60,
+      modelPricing: {},
       filters: { q: "", speaker: "all", race: "all", status: "all", sort: "file" },
     };
 
@@ -1278,13 +1284,62 @@
     function updatePricingHint() {
       const s = App.settings;
       const p = $("aiProvider").value;
-      const pricing = (s && s.pricing && s.pricing[p]) || null;
+      const model = $("aiModel").value.trim();
+      // Prefer the exact model pricing from the catalog (e.g. OpenRouter)
+      let pricing = App.modelPricing[model] || null;
+      let source = "";
+      if (!pricing) {
+        pricing = (s && s.pricing && s.pricing[p]) || null;
+        source = " (Schätzung)";
+      }
       const hint = $("pricingHint");
       if (!pricing || (!pricing.input && !pricing.output)) {
         hint.textContent = "";
         return;
       }
-      hint.textContent = `Preisbasis (Schätzung): ${pricing.input.toFixed(2)} $ / ${pricing.output.toFixed(2)} $ pro 1M Tokens (Input/Output).`;
+      hint.textContent = `Preisbasis${source}: ${Number(pricing.input).toFixed(2)} $ / ${Number(pricing.output).toFixed(2)} $ pro 1M Tokens (Input/Output).`;
+    }
+
+    async function listModels() {
+      const body = {
+        provider: $("aiProvider").value,
+        base_url: $("aiBaseUrl").value.trim(),
+      };
+      const key = $("aiKey").value.trim();
+      if (key) body.api_key = key;
+      const btn = $("aiModelsBtn");
+      const out = $("testResult");
+      btn.disabled = true;
+      btn.textContent = "Lade …";
+      try {
+        const r = await api("/api/settings/models", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(body),
+        });
+        if (r.ok && r.models && r.models.length) {
+          const dl = $("aiModelList");
+          dl.innerHTML = "";
+          App.modelPricing = {};
+          r.models.forEach((m) => {
+            const opt = document.createElement("option");
+            opt.value = m.id;
+            dl.appendChild(opt);
+            if (m.pricing) App.modelPricing[m.id] = m.pricing;
+          });
+          toast(r.message, "ok");
+          updatePricingHint();
+        } else {
+          out.className = "test-result fail";
+          out.textContent = r.message || "Keine Modelle gefunden.";
+        }
+      } catch (err) {
+        out.className = "test-result fail";
+        out.textContent = `Fehler: ${err.message}`;
+      } finally {
+        btn.disabled = false;
+        btn.textContent = "Modelle laden";
+      }
     }
 
     $("aiProvider").addEventListener("change", () => {
@@ -1299,13 +1354,16 @@
         ollama:     { base_url: "http://127.0.0.1:11434",                          default_model: "qwen2.5:7b" },
       };
       const info = (s && s.providers && s.providers[p]) || staticDefaults[p] || {};
-      if (!$("aiModel").value || $("aiModel").dataset.auto === p) {
-        $("aiModel").value = info.default_model || "";
-        $("aiModel").dataset.auto = p;
-      }
+      // Always reset to the provider default — stale models from another
+      // provider cause 404 "Model Not Exist" errors.
+      $("aiModel").value = info.default_model || "";
+      $("aiModel").dataset.auto = p;
       if (!$("aiBaseUrl").value) $("aiBaseUrl").value = info.base_url || "";
+      $("aiModelList").innerHTML = "";
+      App.modelPricing = {};
       updatePricingHint();
     });
+    $("aiModel").addEventListener("input", updatePricingHint);
 
     /* ---------- boot ---------- */
     (async function boot() {

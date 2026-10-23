@@ -38,6 +38,7 @@ from pipeline.ai_client import (
     PROVIDERS,
     get_settings as get_ai_settings,
     is_available as ai_is_available,
+    list_models as ai_list_models,
     test_connection as ai_test_connection,
 )
 from pipeline.live_state import (
@@ -353,6 +354,21 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
                 settings["enabled"] = bool(body["enabled"])
             ok, message = ai_test_connection(settings)
             self._send_json({"ok": ok, "message": message})
+            return
+
+        if parsed.path == "/api/settings/models":
+            length = int(self.headers.get("Content-Length", "0"))
+            body = json.loads(self.rfile.read(length).decode("utf-8")) if length > 0 else {}
+            settings = get_ai_settings(self.cfg)
+            # List models with form values (fresh key allowed, never stored)
+            if body.get("provider") is not None:
+                settings["provider"] = str(body["provider"]).strip().lower()
+            if body.get("base_url") is not None:
+                settings["base_url"] = str(body["base_url"]).strip().rstrip("/")
+            if body.get("api_key"):
+                settings["api_key"] = str(body["api_key"]).strip()
+            ok, models, message = ai_list_models(settings)
+            self._send_json({"ok": ok, "models": models, "message": message})
             return
 
         if parsed.path == "/api/start_job":
