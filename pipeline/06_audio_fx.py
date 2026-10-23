@@ -24,8 +24,10 @@ import shutil
 import subprocess
 import sys
 from pathlib import Path
-from typing import Dict, List
+from typing import Dict, List, Optional, Tuple
 
+import numpy as np
+import soundfile as sf
 import yaml
 from mutagen.oggvorbis import OggVorbis
 from rich.console import Console
@@ -37,16 +39,82 @@ from pipeline.live_state import begin_step, finish_step, increment, update_curre
 console = Console()
 
 
+def compute_match_eq_gains(
+    ref_path: Path,
+    tts_path: Path,
+    bands: List[float],
+    max_boost_db: float = 8.0,
+    max_cut_db: float = -6.0,
+    min_gain_db: float = 0.5,
+) -> List[Tuple[float, float]]:
+    """
+    Spektrales EQ-Matching: vergleicht das gemittelte Spektrum des englischen
+    Originals (Referenz) mit dem des deutschen Takes und liefert pro Band eine
+    Korrektur in dB (Lautstärke-normalisiert, geglättet, begrenzt).
+    """
+    try:
+        ref, sr_ref = sf.read(str(ref_path), always_2d=True)
+        tts, sr_tts = sf.read(str(tts_path), always_2d=True)
+    except Exception:
+        return []
+    ref = np.mean(ref, axis=1).astype(np.float32)
+    tts = np.mean(tts, axis=1).astype(np.float32)
+    if len(ref) < sr_ref or len(tts) < sr_tts:
+        return []
+
+    def band_power_db(x, sr, f0, f1):
+        n = len(x)
+        win = np.hanning(n).astype(np.float32)
+        X = np.fft.rfft(x * win)
+        freqs = np.fft.rfftfreq(n, 1.0 / sr)
+        mask = (freqs >= f0) & (freqs < f1)
+        if not mask.any():
+            return None
+        p = float(np.mean(np.abs(X[mask]) ** 2))
+        return 10.0 * np.log10(max(p, 1e-12))
+
+    ref_total = 10.0 * np.log10(max(float(np.mean(ref ** 2)), 1e-12))
+    tts_total = 10.0 * np.log10(max(float(np.mean(tts ** 2)), 1e-12))
+
+    f_max = min(11500.0, float(sr_tts // 2) - 1000.0)
+    freqs: List[float] = []
+    gains: List[float] = []
+    for i, f0 in enumerate(bands):
+        f1 = bands[i + 1] if i + 1 < len(bands) else f_max
+        if f0 >= f_max:
+            continue
+        rb = band_power_db(ref, sr_ref, f0, f1)
+        tb = band_power_db(tts, sr_tts, f0, f1)
+        if rb is None or tb is None:
+            continue
+        g = (rb - ref_total) - (tb - tts_total)
+        g = float(np.clip(g, max_cut_db, max_boost_db))
+        freqs.append((f0 + min(f1, f_max)) / 2.0)
+        gains.append(g)
+
+    if not gains:
+        return []
+    # Bänder glätten, um Kammfilter-Artefakte zu vermeiden
+    gains = np.convolve(gains, [0.25, 0.5, 0.25], mode="same")
+    # Nur relevante Korrekturen behalten (hält die FFmpeg-Kette kurz)
+    return [
+        (round(float(f)), round(float(g), 2))
+        for f, g in zip(freqs, gains)
+        if abs(g) >= min_gain_db
+    ]
+
+
 def process_audio_fx_and_export_ogg(
     input_wav: Path,
     output_ogg: Path,
     race_af_chain: str,
     loudnorm_cfg: Dict,
     ogg_cfg: Dict,
+    eq_filters: str = "",
 ) -> float:
     """
-    Runs FFmpeg with race-specific DSP filters + EBU R128 loudnorm + libvorbis q:a 4.
-    Returns final OGG duration in seconds.
+    Runs FFmpeg with optional EQ-match filters + race-specific DSP chain +
+    EBU R128 loudnorm + libvorbis q:a 4. Returns final OGG duration in seconds.
     """
     output_ogg.parent.mkdir(parents=True, exist_ok=True)
 
@@ -56,11 +124,13 @@ def process_audio_fx_and_export_ogg(
     target_sr = ogg_cfg.get("sample_rate", 44100)
     quality = ogg_cfg.get("quality", 4)
 
-    full_af = (
-        f"{race_af_chain},"
-        f"loudnorm=I={i_lufs}:TP={tp_db}:LRA={lra},"
-        f"afade=t=in:st=0:d=0.015"
-    )
+    parts = [
+        eq_filters,
+        race_af_chain,
+        f"loudnorm=I={i_lufs}:TP={tp_db}:LRA={lra}",
+        "afade=t=in:st=0:d=0.015",
+    ]
+    full_af = ",".join(p for p in parts if p)
 
     cmd = [
         "ffmpeg",
@@ -182,6 +252,7 @@ def main():
     race_profiles = fx_cfg["race_profiles"]
     loudnorm_cfg = fx_cfg["loudnorm"]
     ogg_cfg = fx_cfg["ogg_export"]
+    eq_cfg = fx_cfg.get("eq_matching", {})
 
     pilot_data = json.loads(pilot_path.read_text(encoding="utf-8"))
     entries = pilot_data["entries"]
@@ -213,12 +284,34 @@ def main():
             "cer": None,
         })
 
+        # Spektrales EQ-Matching gegen das englische Original (behebt "dünnen" Klang)
+        eq_filters = ""
+        eq_match_info = None
+        if eq_cfg.get("enabled", True):
+            src_ogg = Path(e.get("source_ogg_path") or "")
+            if src_ogg.is_file():
+                eq_gains = compute_match_eq_gains(
+                    src_ogg,
+                    raw_wav,
+                    bands=[float(b) for b in eq_cfg.get("bands", [80, 120, 180, 250, 350, 500, 700, 1000, 1400, 2000, 2800, 4000, 5600, 8000, 11000])],
+                    max_boost_db=float(eq_cfg.get("max_boost_db", 8.0)),
+                    max_cut_db=float(eq_cfg.get("max_cut_db", -6.0)),
+                    min_gain_db=float(eq_cfg.get("min_gain_db", 0.5)),
+                )
+                if eq_gains:
+                    eq_filters = ",".join(
+                        f"equalizer=f={f}:width_type=q:width=0.6:g={g:.2f}"
+                        for f, g in eq_gains
+                    )
+                    eq_match_info = eq_gains
+
         final_dur = process_audio_fx_and_export_ogg(
             input_wav=raw_wav,
             output_ogg=out_ogg,
             race_af_chain=af_chain,
             loudnorm_cfg=loudnorm_cfg,
             ogg_cfg=ogg_cfg,
+            eq_filters=eq_filters,
         )
         increment(processed=1)
 
@@ -230,6 +323,7 @@ def main():
             "af_chain": af_chain,
             "loudnorm": f"I={loudnorm_cfg['integrated_lufs']} LUFS, TP={loudnorm_cfg['true_peak_db']} dBTP",
         }
+        e["applied_eq_match"] = eq_match_info
 
         table.add_row(
             e["target_ogg_filename"],

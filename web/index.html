@@ -1336,6 +1336,7 @@
             <div class="sub-meta">
               <div><b>${esc(t("script"))}:</b> ${esc(e.tts_script_text || e.clean_de_text || "—")}</div>
               <div><b>${esc(t("phonetics"))}:</b> ${esc(phonetics)}${e.prosody && e.prosody.acting_note ? " · <b>" + esc(t("direction")) + ":</b> " + esc(e.prosody.acting_note) : ""}</div>
+              ${e.applied_eq_match && e.applied_eq_match.length ? `<div><b>EQ-Match:</b> ${e.applied_eq_match.length} Bänder an EN-Original angeglichen</div>` : ""}
               ${qa ? `<div><b>${esc(t("whisper"))}:</b> „${esc(qa.transcript || "—")}“</div>` : ""}
             </div>
           </div>
