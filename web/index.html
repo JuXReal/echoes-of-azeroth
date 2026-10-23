@@ -3,171 +3,255 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Echoes of Azeroth — Voiceover Studio & Quality Control</title>
+  <title>Echoes of Azeroth — Pro Audio Studio</title>
   <style>
     :root {
-      /* World of Warcraft Classic Theme Colors */
-      --wow-dark: #0a0705;
-      --wow-parchment: #0f0d0b;
-      --wow-card-bg: #14110e;
-      --wow-card-hover: #1c1813;
-      --wow-border-gold: #c69b3a;
-      --wow-border-dark: #382b1b;
-      --wow-gold: #ffd100;
-      --wow-gold-dim: #cfb154;
-      --wow-alliance-blue: #0078ff;
-      --wow-horde-red: #c41f3b;
-      --wow-uncommon-green: #1eff00;
-      --wow-rare-blue: #0070dd;
-      --wow-epic-purple: #a335ee;
-      --wow-legendary-orange: #ff8000;
-      --wow-artifact-gold: #e6cc80;
-      --wow-text: #f0e6d2;
-      --wow-text-muted: #a69882;
+      /* Apple Pro Dark x Warcraft Palette */
+      --bg: #09090b;
+      --surface: rgba(22, 22, 26, 0.75);
+      --surface-elevated: rgba(30, 30, 36, 0.85);
+      --glass-border: rgba(255, 255, 255, 0.08);
+      --glass-highlight: rgba(255, 255, 255, 0.12);
+      
+      --wow-gold: #f5c542;
+      --wow-gold-muted: #b89530;
+      --wow-gold-glow: rgba(245, 197, 66, 0.25);
+      
+      --wow-epic: #a335ee;
+      --wow-rare: #0070dd;
+      --wow-green: #30d158;
+      --wow-red: #ff453a;
+      
+      --text: #f4f4f6;
+      --text-secondary: #9898a0;
+      --text-tertiary: #686873;
     }
-    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Trebuchet MS", sans-serif;
-      background: radial-gradient(circle at 50% 0%, #20140c 0%, var(--wow-dark) 75%);
-      color: var(--wow-text);
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Segoe UI", Roboto, sans-serif;
+      background: radial-gradient(circle at 50% 0%, #1c1813 0%, #0c0b0a 45%, var(--bg) 100%);
+      color: var(--text);
       min-height: 100vh;
-      padding: 1.75rem 2rem;
+      padding: 2rem 2.5rem;
     }
+
+    /* Apple-style floating notice */
     .ethics-banner {
       max-width: 1440px;
-      margin: 0 auto 1.25rem auto;
-      padding: 1.1rem 1.4rem;
-      background: linear-gradient(135deg, rgba(198, 155, 58, 0.15), rgba(196, 31, 59, 0.15));
-      border: 1px solid var(--wow-border-gold);
-      border-radius: 8px;
-      font-size: 0.88rem;
+      margin: 0 auto 1.5rem auto;
+      padding: 1rem 1.4rem;
+      background: rgba(26, 21, 14, 0.65);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(245, 197, 66, 0.25);
+      border-radius: 14px;
+      font-size: 0.86rem;
       line-height: 1.5;
-      color: var(--wow-text);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+      color: var(--text);
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
     }
-    .ethics-banner strong { color: var(--wow-gold); }
+    .ethics-banner strong { color: var(--wow-gold); font-weight: 600; }
+
+    /* Frosted Glass Header */
     header {
       max-width: 1440px;
       margin: 0 auto 1.5rem auto;
-      padding: 1.5rem 2rem;
-      background: linear-gradient(180deg, #1f1811 0%, #110e0a 100%);
-      border: 2px solid var(--wow-border-gold);
-      border-radius: 10px;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.7), inset 0 0 15px rgba(198, 155, 58, 0.15);
+      padding: 1.6rem 2.2rem;
+      background: var(--surface);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 var(--glass-highlight);
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
       gap: 1.5rem;
     }
+
     .brand h1 {
-      font-size: 1.75rem;
-      color: var(--wow-gold);
-      letter-spacing: 0.5px;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.9), 0 0 12px rgba(255, 209, 0, 0.35);
+      font-size: 1.7rem;
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.4px;
       display: flex;
       align-items: center;
       gap: 0.6rem;
     }
-    .brand p {
-      color: var(--wow-text-muted);
-      font-size: 0.92rem;
-      margin-top: 0.35rem;
+    .brand h1 span.gold {
+      color: var(--wow-gold);
+      text-shadow: 0 0 20px var(--wow-gold-glow);
     }
+    .brand p {
+      color: var(--text-secondary);
+      font-size: 0.88rem;
+      margin-top: 0.3rem;
+      font-weight: 400;
+    }
+
     .stats-bar {
       display: flex;
-      gap: 1rem;
+      gap: 0.85rem;
       flex-wrap: wrap;
     }
     .stat-pill {
-      background: rgba(0, 0, 0, 0.45);
-      border: 1px solid var(--wow-border-dark);
-      padding: 0.65rem 1.1rem;
-      border-radius: 8px;
+      background: rgba(0, 0, 0, 0.35);
+      border: 1px solid var(--glass-border);
+      padding: 0.65rem 1.15rem;
+      border-radius: 12px;
       text-align: center;
-      min-width: 120px;
-      box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+      min-width: 110px;
+      transition: all 0.2s ease;
+    }
+    .stat-pill:hover {
+      border-color: rgba(245, 197, 66, 0.3);
+      transform: translateY(-1px);
     }
     .stat-pill .val {
       font-size: 1.35rem;
-      font-weight: 800;
-      color: var(--wow-gold);
+      font-weight: 700;
+      color: #fff;
+      letter-spacing: -0.5px;
     }
     .stat-pill .lbl {
-      font-size: 0.72rem;
-      color: var(--wow-text-muted);
+      font-size: 0.7rem;
+      color: var(--text-secondary);
       text-transform: uppercase;
-      letter-spacing: 0.8px;
-      margin-top: 2px;
+      letter-spacing: 0.6px;
+      margin-top: 3px;
+      font-weight: 500;
     }
+
+    /* Glass Launchpad */
     .launchpad {
       max-width: 1440px;
       margin: 0 auto 1.5rem auto;
-      background: linear-gradient(180deg, #1a140f 0%, #100d0a 100%);
-      border: 1px solid var(--wow-border-gold);
-      border-radius: 10px;
-      padding: 1.25rem 1.6rem;
-      box-shadow: 0 8px 24px rgba(0,0,0,0.6);
+      background: var(--surface);
+      backdrop-filter: blur(30px);
+      -webkit-backdrop-filter: blur(30px);
+      border: 1px solid var(--glass-border);
+      border-radius: 20px;
+      padding: 1.3rem 1.8rem;
+      box-shadow: 0 16px 40px rgba(0, 0, 0, 0.5), inset 0 1px 0 var(--glass-highlight);
     }
+
     .launchpad-top {
       display: flex;
       flex-wrap: wrap;
       justify-content: space-between;
       align-items: center;
-      gap: 1rem;
+      gap: 1.2rem;
     }
     .launchpad-title {
-      font-size: 1.05rem;
-      font-weight: 700;
-      color: var(--wow-gold);
+      font-size: 1rem;
+      font-weight: 600;
+      color: #fff;
       display: flex;
       align-items: center;
-      gap: 0.5rem;
+      gap: 0.6rem;
     }
+
+    /* Live Activity Indicator Pill */
+    .status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+      padding: 0.3rem 0.75rem;
+      border-radius: 20px;
+      font-size: 0.78rem;
+      font-weight: 600;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid var(--glass-border);
+      color: var(--text-secondary);
+    }
+    .status-badge.running {
+      background: rgba(245, 197, 66, 0.15);
+      border-color: rgba(245, 197, 66, 0.4);
+      color: var(--wow-gold);
+    }
+    .pulse-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: var(--wow-gold);
+      box-shadow: 0 0 8px var(--wow-gold);
+      animation: pulse 1.6s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 1; }
+      50% { transform: scale(1.3); opacity: 0.5; }
+    }
+
     .launchpad-controls {
       display: flex;
       gap: 0.75rem;
       flex-wrap: wrap;
       align-items: center;
     }
-    .start-btn {
-      background: linear-gradient(180deg, #8b1828 0%, #540e18 100%);
-      border: 1px solid #d43b50;
+
+    /* Apple Pro Buttons */
+    .btn-action {
+      background: linear-gradient(180deg, #2c2c32 0%, #1e1e24 100%);
+      border: 1px solid var(--glass-border);
       color: #fff;
-      padding: 0.7rem 1.4rem;
-      border-radius: 6px;
-      font-weight: 700;
+      padding: 0.65rem 1.25rem;
+      border-radius: 10px;
+      font-weight: 600;
+      font-size: 0.88rem;
       cursor: pointer;
-      font-size: 0.92rem;
-      letter-spacing: 0.4px;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
       transition: all 0.15s ease;
-      box-shadow: 0 4px 12px rgba(196, 31, 59, 0.4);
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.1);
     }
-    .start-btn:hover:not(:disabled) {
-      background: linear-gradient(180deg, #b01f34 0%, #68111e 100%);
-      box-shadow: 0 0 16px rgba(196, 31, 59, 0.7);
+    .btn-action:hover:not(:disabled) {
+      background: linear-gradient(180deg, #383840 0%, #25252c 100%);
       transform: translateY(-1px);
+      box-shadow: 0 4px 14px rgba(0,0,0,0.4);
     }
-    .start-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+    .btn-action.gold {
+      background: linear-gradient(180deg, #d4a024 0%, #ab7d14 100%);
+      border: 1px solid #fce07c;
+      color: #000;
+      font-weight: 700;
+      box-shadow: 0 2px 12px rgba(245, 197, 66, 0.35);
     }
+    .btn-action.gold:hover:not(:disabled) {
+      background: linear-gradient(180deg, #e6b02a 0%, #bd8a16 100%);
+      box-shadow: 0 4px 18px rgba(245, 197, 66, 0.5);
+    }
+    .btn-action.green {
+      background: linear-gradient(180deg, #248a4c 0%, #166034 100%);
+      border: 1px solid #4cd980;
+      color: #fff;
+      box-shadow: 0 2px 10px rgba(48, 209, 88, 0.25);
+    }
+    .btn-action:disabled { opacity: 0.45; cursor: not-allowed; }
+
+    /* macOS / Terminal style console */
     .job-console {
-      margin-top: 1rem;
-      background: #050403;
-      border: 1px solid var(--wow-border-dark);
-      border-radius: 6px;
-      padding: 1rem;
-      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-      font-size: 0.82rem;
-      color: #d1c5b0;
+      margin-top: 1.1rem;
+      background: rgba(0, 0, 0, 0.7);
+      backdrop-filter: blur(20px);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 1rem 1.2rem;
+      font-family: "SF Mono", Menlo, Monaco, Consolas, monospace;
+      font-size: 0.8rem;
+      color: #d1d1d6;
       height: 220px;
       overflow-y: auto;
       white-space: pre-wrap;
-      line-height: 1.45;
+      line-height: 1.5;
       display: none;
-      box-shadow: inset 0 0 15px rgba(0,0,0,0.8);
+      box-shadow: inset 0 2px 8px rgba(0,0,0,0.6);
     }
+
+    /* Controls Bar */
     .controls-bar {
       max-width: 1440px;
       margin: 0 auto 1.5rem auto;
@@ -177,40 +261,23 @@
       align-items: center;
     }
     .search-input, .filter-select {
-      background: #15110d;
-      color: var(--wow-text);
-      border: 1px solid var(--wow-border-dark);
-      padding: 0.7rem 1rem;
-      border-radius: 6px;
-      font-size: 0.92rem;
+      background: var(--surface);
+      backdrop-filter: blur(20px);
+      color: #fff;
+      border: 1px solid var(--glass-border);
+      padding: 0.65rem 1rem;
+      border-radius: 10px;
+      font-size: 0.9rem;
       outline: none;
-      transition: border-color 0.15s ease;
+      transition: all 0.15s ease;
     }
     .search-input { flex: 1; min-width: 260px; }
     .search-input:focus, .filter-select:focus {
-      border-color: var(--wow-border-gold);
-      box-shadow: 0 0 8px rgba(198, 155, 58, 0.35);
+      border-color: rgba(245, 197, 66, 0.4);
+      box-shadow: 0 0 0 3px rgba(245, 197, 66, 0.12);
     }
-    .btn {
-      background: linear-gradient(180deg, #2b3952 0%, #151d2a 100%);
-      border: 1px solid var(--wow-rare-blue);
-      color: #fff;
-      padding: 0.7rem 1.25rem;
-      border-radius: 6px;
-      font-weight: 700;
-      cursor: pointer;
-      font-size: 0.88rem;
-      transition: all 0.15s ease;
-    }
-    .btn:hover {
-      box-shadow: 0 0 12px rgba(0, 112, 221, 0.6);
-      transform: translateY(-1px);
-    }
-    .btn.secondary {
-      background: #15110d;
-      border: 1px solid var(--wow-border-dark);
-      color: var(--wow-text-muted);
-    }
+
+    /* Quest Cards Grid */
     .playlist-grid {
       max-width: 1440px;
       margin: 0 auto;
@@ -219,60 +286,66 @@
       gap: 1.25rem;
     }
     .quest-card {
-      background: var(--wow-card-bg);
-      border: 1px solid var(--wow-border-dark);
-      border-radius: 8px;
-      padding: 1.3rem 1.5rem;
-      box-shadow: 0 6px 18px rgba(0,0,0,0.5);
-      transition: border-color 0.2s ease, background 0.2s ease;
+      background: var(--surface);
+      backdrop-filter: blur(25px);
+      -webkit-backdrop-filter: blur(25px);
+      border: 1px solid var(--glass-border);
+      border-radius: 18px;
+      padding: 1.4rem 1.6rem;
+      box-shadow: 0 8px 30px rgba(0, 0, 0, 0.35);
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .quest-card:hover {
-      background: var(--wow-card-hover);
-      border-color: var(--wow-border-gold);
+      background: var(--surface-elevated);
+      border-color: rgba(245, 197, 66, 0.25);
+      transform: translateY(-2px);
+      box-shadow: 0 14px 40px rgba(0, 0, 0, 0.5);
     }
     .quest-card.playing {
       border-color: var(--wow-gold);
-      box-shadow: 0 0 20px rgba(255, 209, 0, 0.25);
+      box-shadow: 0 0 30px var(--wow-gold-glow);
     }
+
     .card-top {
       display: flex;
       justify-content: space-between;
       align-items: flex-start;
       gap: 1rem;
-      margin-bottom: 0.9rem;
+      margin-bottom: 1rem;
       flex-wrap: wrap;
     }
     .quest-meta {
       display: flex;
       align-items: center;
-      gap: 0.65rem;
+      gap: 0.6rem;
       flex-wrap: wrap;
     }
     .badge {
       font-size: 0.72rem;
-      font-weight: 700;
+      font-weight: 600;
       padding: 0.25rem 0.65rem;
-      border-radius: 4px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
+      border-radius: 6px;
+      letter-spacing: 0.3px;
     }
-    .badge.file { background: rgba(198, 155, 58, 0.18); color: var(--wow-gold); border: 1px solid var(--wow-border-gold); }
-    .badge.race { background: rgba(163, 53, 238, 0.18); color: #d48aff; border: 1px solid var(--wow-epic-purple); }
-    .badge.zone { background: rgba(255, 255, 255, 0.05); color: var(--wow-text-muted); border: 1px solid var(--wow-border-dark); }
-    .badge.qa-pass { background: rgba(30, 255, 0, 0.14); color: var(--wow-uncommon-green); border: 1px solid rgba(30, 255, 0, 0.4); }
-    .badge.qa-fail { background: rgba(196, 31, 59, 0.22); color: #ff6b81; border: 1px solid var(--wow-horde-red); }
+    .badge.file { background: rgba(255, 255, 255, 0.06); color: var(--text-secondary); border: 1px solid var(--glass-border); }
+    .badge.race { background: rgba(163, 53, 238, 0.12); color: #d48aff; border: 1px solid rgba(163, 53, 238, 0.3); }
+    .badge.zone { background: rgba(255, 255, 255, 0.04); color: var(--text-tertiary); }
+    .badge.qa-pass { background: rgba(48, 209, 88, 0.12); color: var(--wow-green); border: 1px solid rgba(48, 209, 88, 0.25); }
+    .badge.qa-fail { background: rgba(255, 69, 58, 0.14); color: var(--wow-red); border: 1px solid rgba(255, 69, 58, 0.3); }
+
     .quest-title {
       font-size: 1.15rem;
       font-weight: 700;
       color: #fff;
-      margin-top: 0.35rem;
-      letter-spacing: 0.3px;
+      margin-top: 0.4rem;
+      letter-spacing: -0.2px;
     }
     .npc-speaker {
       color: var(--wow-gold);
-      font-weight: 700;
+      font-weight: 600;
       font-size: 0.95rem;
     }
+
     .content-columns {
       display: grid;
       grid-template-columns: 1.25fr 1fr;
@@ -282,10 +355,11 @@
     @media (max-width: 1024px) {
       .content-columns { grid-template-columns: 1fr; }
     }
+
     .text-box {
-      background: #0b0907;
-      border: 1px solid var(--wow-border-dark);
-      border-radius: 6px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
       padding: 1.1rem 1.3rem;
       display: flex;
       flex-direction: column;
@@ -293,19 +367,20 @@
     }
     .de-text {
       font-size: 0.95rem;
-      line-height: 1.55;
-      color: #f7eedb;
-      font-style: italic;
+      line-height: 1.6;
+      color: #f0f0f4;
+      font-weight: 400;
     }
     .sub-meta {
       margin-top: 1rem;
       padding-top: 0.75rem;
-      border-top: 1px solid rgba(255, 255, 255, 0.08);
+      border-top: 1px solid var(--glass-border);
       font-size: 0.78rem;
-      color: var(--wow-text-muted);
+      color: var(--text-secondary);
       line-height: 1.5;
     }
-    .sub-meta strong { color: var(--wow-gold-dim); }
+    .sub-meta strong { color: var(--wow-gold-muted); font-weight: 600; }
+
     .audio-players {
       display: flex;
       flex-direction: column;
@@ -313,35 +388,34 @@
       justify-content: center;
     }
     .player-row {
-      background: #0d0a08;
-      border: 1px solid var(--wow-border-dark);
-      border-radius: 6px;
-      padding: 0.65rem 0.9rem;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid var(--glass-border);
+      border-radius: 12px;
+      padding: 0.65rem 0.95rem;
       display: flex;
       align-items: center;
       justify-content: space-between;
       gap: 0.8rem;
+      transition: border-color 0.15s ease;
     }
     .player-row.de-row {
-      border-color: rgba(198, 155, 58, 0.5);
-      background: linear-gradient(90deg, rgba(198, 155, 58, 0.08), rgba(13, 10, 8, 0.9));
+      border-color: rgba(245, 197, 66, 0.25);
+      background: linear-gradient(90deg, rgba(245, 197, 66, 0.06), rgba(0, 0, 0, 0.25));
     }
     .lang-tag {
       min-width: 135px;
       font-size: 0.82rem;
-      font-weight: 700;
+      font-weight: 600;
       display: flex;
       flex-direction: column;
     }
     .lang-tag span.sub {
       font-size: 0.7rem;
       font-weight: 400;
-      color: var(--wow-text-muted);
+      color: var(--text-secondary);
     }
-    audio {
-      height: 36px;
-      flex: 1;
-    }
+    audio { height: 36px; flex: 1; }
+
     .ab-buttons {
       display: flex;
       gap: 0.5rem;
@@ -349,38 +423,34 @@
       flex-wrap: wrap;
     }
     .btn-mini {
-      padding: 0.45rem 0.8rem;
+      padding: 0.45rem 0.85rem;
       font-size: 0.76rem;
-      border-radius: 4px;
-      border: 1px solid var(--wow-border-dark);
-      background: #17120e;
-      color: var(--wow-text);
+      border-radius: 8px;
+      border: 1px solid var(--glass-border);
+      background: rgba(255, 255, 255, 0.05);
+      color: #fff;
       cursor: pointer;
       font-weight: 600;
       transition: all 0.12s ease;
     }
     .btn-mini:hover {
-      background: #231b15;
-      border-color: var(--wow-border-gold);
+      background: rgba(255, 255, 255, 0.1);
+      transform: translateY(-1px);
     }
     .btn-mini.de {
-      background: rgba(198, 155, 58, 0.2);
-      border-color: var(--wow-border-gold);
+      background: rgba(245, 197, 66, 0.15);
+      border-color: rgba(245, 197, 66, 0.35);
       color: var(--wow-gold);
     }
     .btn-mini.en {
       background: rgba(0, 112, 221, 0.15);
-      border-color: var(--wow-rare-blue);
+      border-color: rgba(0, 112, 221, 0.35);
       color: #7ab8ff;
     }
     .btn-mini.regen {
-      background: rgba(196, 31, 59, 0.18);
-      border-color: var(--wow-horde-red);
-      color: #ff859c;
-    }
-    .btn-mini.regen:hover {
-      background: rgba(196, 31, 59, 0.35);
-      box-shadow: 0 0 10px rgba(196, 31, 59, 0.5);
+      background: rgba(255, 69, 58, 0.14);
+      border-color: rgba(255, 69, 58, 0.3);
+      color: #ff6b81;
     }
   </style>
 </head>
@@ -393,7 +463,7 @@
 
   <header>
     <div class="brand">
-      <h1>🎙️ Echoes of Azeroth — Voiceover Studio</h1>
+      <h1>🎙️ Echoes of Azeroth <span class="gold">Pro Studio</span></h1>
       <p>Multi-Language AI Voice Cloning &amp; Mastering Suite • Coqui XTTS-v2 • Faster-Whisper QA • EBU R128 (-16 LUFS)</p>
     </div>
     <div class="stats-bar" id="statsBar">
@@ -404,11 +474,15 @@
     </div>
   </header>
 
-  <!-- Interactive Launchpad -->
+  <!-- Glass Launchpad -->
   <section class="launchpad">
     <div class="launchpad-top">
       <div class="launchpad-title">
-        ⚔️ One-Click Pipeline &amp; Quality Audit Launchpad
+        <span>⚔️ Audio Pipeline &amp; Quality Control Launchpad</span>
+        <span id="liveStatusBadge" class="status-badge">
+          <span class="pulse-dot" style="display:none;" id="pulseDot"></span>
+          <span id="statusBadgeText">Idle</span>
+        </span>
       </div>
       <div class="launchpad-controls">
         <select id="launchExpansion" class="filter-select">
@@ -425,8 +499,8 @@
           <option value="pilot_20">🧪 Run 20-Quest Benchmark Pilot + Audit</option>
           <option value="full_expansion">🚀 Run Full Expansion Batch (All Quests + Gossip + Audit)</option>
         </select>
-        <button id="startJobBtn" class="start-btn" onclick="triggerJob()">▶ START SELECTED ACTION</button>
-        <button id="fullAuditBtn" class="start-btn" style="background: linear-gradient(180deg, #155e3b 0%, #0c3622 100%); border-color: #2ec4b6;" onclick="triggerFullAudit()">🔬 FULL QUALITY CONTROL</button>
+        <button id="startJobBtn" class="btn-action gold" onclick="triggerJob()">▶ START SELECTED ACTION</button>
+        <button id="fullAuditBtn" class="btn-action green" onclick="triggerFullAudit()">🔬 FULL QUALITY CONTROL</button>
       </div>
     </div>
     <pre id="jobConsole" class="job-console"></pre>
@@ -440,13 +514,13 @@
     <select id="raceFilter" class="filter-select">
       <option value="all">All Races / Audio-FX</option>
     </select>
-    <select id="qaStatusFilter" class="filter-select" style="border-color: var(--wow-horde-red); color: #ff859c; font-weight: 700;">
+    <select id="qaStatusFilter" class="filter-select" style="border-color: rgba(255, 69, 58, 0.4); color: #ff859c; font-weight: 600;">
       <option value="all">Status: All Quests</option>
       <option value="failed">⚠️ Review Needed Only (CER &gt; 15% or Loops)</option>
       <option value="passed">✓ Verified Quests Only</option>
     </select>
-    <button class="btn" onclick="playAllGerman()">▶ Play All Localized Sequentially</button>
-    <button class="btn secondary" onclick="stopAllAudio()">⏹ Stop</button>
+    <button class="btn-action" onclick="playAllGerman()">▶ Play All Localized Sequentially</button>
+    <button class="btn-action" style="background: rgba(255,255,255,0.06);" onclick="stopAllAudio()">⏹ Stop</button>
   </div>
 
   <main class="playlist-grid" id="playlistContainer"></main>
@@ -454,44 +528,45 @@
   <script>
     let allEntries = [];
     let autoPlayActive = false;
-    let pollTimer = null;
 
     async function loadPlaylist() {
-      const res = await fetch('/api/playlist');
-      const data = await res.json();
-      allEntries = data.entries || [];
-
-      const spkSel = document.getElementById('speakerFilter');
-      spkSel.innerHTML = '<option value="all">All Speakers (NPCs)</option>';
-      [...new Set(allEntries.map(e => e.npc_name))].filter(Boolean).sort().forEach(s => {
-        const opt = document.createElement('option');
-        opt.value = s; opt.textContent = s;
-        spkSel.appendChild(opt);
-      });
-
-      const raceSel = document.getElementById('raceFilter');
-      raceSel.innerHTML = '<option value="all">All Races / Audio-FX</option>';
-      [...new Set(allEntries.map(e => e.race))].filter(Boolean).sort().forEach(r => {
-        const opt = document.createElement('option');
-        opt.value = r; opt.textContent = r;
-        raceSel.appendChild(opt);
-      });
-
-      document.getElementById('statCount').textContent = allEntries.length;
-      const passed = allEntries.filter(e => !e.qa_result || e.qa_result.passed).length;
-      document.getElementById('statPass').textContent = `${passed}/${allEntries.length}`;
-      const avgCer = allEntries.reduce((acc, e) => acc + (e.qa_result ? e.qa_result.cer : 0), 0) / Math.max(1, allEntries.length);
-      document.getElementById('statCer').textContent = `${(avgCer * 100).toFixed(1)}%`;
-
       try {
+        const res = await fetch('/api/playlist');
+        const data = await res.json();
+        allEntries = data.entries || [];
+
+        const spkSel = document.getElementById('speakerFilter');
+        spkSel.innerHTML = '<option value="all">All Speakers (NPCs)</option>';
+        [...new Set(allEntries.map(e => e.npc_name))].filter(Boolean).sort().forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s; opt.textContent = s;
+          spkSel.appendChild(opt);
+        });
+
+        const raceSel = document.getElementById('raceFilter');
+        raceSel.innerHTML = '<option value="all">All Races / Audio-FX</option>';
+        [...new Set(allEntries.map(e => e.race))].filter(Boolean).sort().forEach(r => {
+          const opt = document.createElement('option');
+          opt.value = r; opt.textContent = r;
+          raceSel.appendChild(opt);
+        });
+
+        document.getElementById('statCount').textContent = allEntries.length;
+        const passed = allEntries.filter(e => !e.qa_result || e.qa_result.passed).length;
+        document.getElementById('statPass').textContent = `${passed}/${allEntries.length}`;
+        const avgCer = allEntries.reduce((acc, e) => acc + (e.qa_result ? e.qa_result.cer : 0), 0) / Math.max(1, allEntries.length);
+        document.getElementById('statCer').textContent = `${(avgCer * 100).toFixed(1)}%`;
+
         const aRes = await fetch('/api/audit');
         const aData = await aRes.json();
         if (aData && aData.audited_count) {
           document.getElementById('statAudit').textContent = `${aData.passed_count}/${aData.audited_count} Pass`;
         }
-      } catch (_) {}
 
-      renderCards();
+        renderCards();
+      } catch (err) {
+        console.warn('Playlist not ready yet:', err);
+      }
     }
 
     async function triggerFullAudit() {
@@ -512,10 +587,6 @@
         const err = await res.json();
         con.textContent = `Error: ${err.error || 'Could not start full audit'}`;
         btn.disabled = false;
-        return;
-      }
-      if (!pollTimer) {
-        pollTimer = setInterval(pollJobStatus, 1200);
       }
     }
 
@@ -532,10 +603,6 @@
       if (!res.ok) {
         const err = await res.json();
         alert(`Could not regenerate entry: ${err.error || 'Error'}`);
-        return;
-      }
-      if (!pollTimer) {
-        pollTimer = setInterval(pollJobStatus, 1200);
       }
     }
 
@@ -558,36 +625,42 @@
         const err = await res.json();
         con.textContent = `Error: ${err.error || 'Could not start job'}`;
         btn.disabled = false;
-        return;
-      }
-      if (!pollTimer) {
-        pollTimer = setInterval(pollJobStatus, 1200);
       }
     }
 
     async function pollJobStatus() {
-      const res = await fetch('/api/job_status');
-      const st = await res.json();
-      const con = document.getElementById('jobConsole');
-      const btn = document.getElementById('startJobBtn');
-      const fullBtn = document.getElementById('fullAuditBtn');
+      try {
+        const res = await fetch('/api/job_status');
+        const st = await res.json();
+        const con = document.getElementById('jobConsole');
+        const btn = document.getElementById('startJobBtn');
+        const fullBtn = document.getElementById('fullAuditBtn');
+        const badge = document.getElementById('liveStatusBadge');
+        const badgeText = document.getElementById('statusBadgeText');
+        const pulse = document.getElementById('pulseDot');
 
-      if (st.logs && st.logs.length) {
-        con.style.display = 'block';
-        con.textContent = st.logs.join('\n');
-        con.scrollTop = con.scrollHeight;
-      }
-      if (!st.running) {
-        if (btn) btn.disabled = false;
-        if (fullBtn) fullBtn.disabled = false;
-        if (pollTimer) {
-          clearInterval(pollTimer);
-          pollTimer = null;
-          loadPlaylist();
+        if (st.running) {
+          con.style.display = 'block';
+          badge.className = 'status-badge running';
+          badgeText.textContent = `Running: ${st.mode || 'Active Job'}`;
+          pulse.style.display = 'inline-block';
+          if (btn) btn.disabled = true;
+          if (fullBtn) fullBtn.disabled = true;
+        } else {
+          badge.className = 'status-badge';
+          badgeText.textContent = st.finished_at ? `Finished at ${st.finished_at}` : 'Idle';
+          pulse.style.display = 'none';
+          if (btn) btn.disabled = false;
+          if (fullBtn) fullBtn.disabled = false;
         }
-      } else {
-        if (btn) btn.disabled = true;
-        if (fullBtn) fullBtn.disabled = true;
+
+        if (st.logs && st.logs.length) {
+          con.style.display = 'block';
+          con.textContent = st.logs.join('\n');
+          con.scrollTop = con.scrollHeight;
+        }
+      } catch (e) {
+        console.error('Poll failed:', e);
       }
     }
 
@@ -670,7 +743,7 @@
 
       const container = document.getElementById('playlistContainer');
       const countNote = filtered.length > PAGE_SIZE
-        ? `<div style="grid-column: 1 / -1; padding: 0.8rem 1.2rem; background: rgba(198, 155, 58, 0.15); border: 1px solid var(--wow-border-gold); border-radius: 6px; color: var(--wow-gold); font-size: 0.85rem;">
+        ? `<div style="grid-column: 1 / -1; padding: 0.8rem 1.2rem; background: rgba(245, 197, 66, 0.12); border: 1px solid rgba(245, 197, 66, 0.3); border-radius: 12px; color: var(--wow-gold); font-size: 0.85rem;">
              ⚔️ Displaying first 100 of <strong>${filtered.length}</strong> quests (Browser Shield). Use search or filters above to view specific entries.
            </div>`
         : '';
@@ -683,7 +756,7 @@
         const seedFile = e.reference_voice_wav ? e.reference_voice_wav.split('/').pop() : '';
         const isQaFailed = qa && (qa.passed === false || qa.cer > 0.15);
         const qaBadge = isQaFailed
-          ? `<span class="badge qa-fail">⚠️ QA Review (${(qa.cer * 100).toFixed(1)}% CER)</span>`
+          ? `<span class="badge qa-fail">⚠️ Review Needed (${(qa.cer * 100).toFixed(1)}% CER)</span>`
           : `<span class="badge qa-pass">✓ Whisper QA: ${(100 - qa.cer * 100).toFixed(1)}% Match</span>`;
 
         return `
@@ -750,8 +823,9 @@
       document.getElementById('qaStatusFilter').addEventListener('change', renderCards);
     }
 
+    // Continuous poll every 1.5s
     pollJobStatus();
-    setInterval(pollJobStatus, 2500);
+    setInterval(pollJobStatus, 1500);
 
     loadPlaylist();
   </script>
