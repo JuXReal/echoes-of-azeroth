@@ -513,8 +513,23 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
 
         if path.startswith("/audio/en/"):
             fname = os.path.basename(path[len("/audio/en/") :])
-            en_dir = Path(self.cfg["paths"]["source_pack_dir"]) / "voiceovers"
-            self._send_file(en_dir / fname, send_body=send_body)
+            cfg_source = Path(self.cfg["paths"]["source_pack_dir"])
+            candidates = [cfg_source / "voiceovers"]
+            wow_addons = Path(os.getenv("WOW_ADDONS_DIR") or self.cfg["paths"]["wow_addons_dir"])
+            if cfg_source.name:
+                candidates.insert(0, wow_addons / cfg_source.name / "voiceovers")
+            if wow_addons.exists():
+                # Search all ENGLISH packs (names without locale suffix,
+                # e.g. ChattyLittleNpc_Midnight_voiceovers — not *_deDE_*)
+                for pack in sorted(wow_addons.glob("ChattyLittleNpc_*_voiceovers")):
+                    if pack.name.count("_") == 2:
+                        candidates.append(pack / "voiceovers")
+            for en_dir in candidates:
+                cand = en_dir / fname
+                if cand.is_file():
+                    self._send_file(cand, send_body=send_body)
+                    return
+            self.send_error(404, f"File not found: {fname}")
             return
 
         if path.startswith("/audio/de/"):

@@ -59,6 +59,13 @@ EOF
 
 sleep 1
 
+# 1b) Stop orphaned pipeline jobs — children of a killed server keep running
+#     and would keep writing state/catalog files in parallel with a new job.
+if pkill -f "pipeline/0[1-7]_" 2>/dev/null; then
+    echo "  laufende Pipeline-Jobs beendet"
+fi
+sleep 1
+
 # 2) Start the current server version in the background
 nohup "$PY" "$PROJECT_DIR/web/serve.py" --host 127.0.0.1 --port 8765 >/tmp/echoes-of-azeroth-web.log 2>&1 &
 sleep 1.5
