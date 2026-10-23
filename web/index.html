@@ -766,7 +766,7 @@
         b.className = "ethics-banner";
         b.id = "mismatchBanner";
         b.style.borderColor = "rgba(255,97,97,0.55)";
-        b.innerHTML = '<div><b>Server-Version veraltet:</b> Der laufende Server kennt die neuen Endpoints (/api/state, /api/settings) noch nicht. Bitte neu starten: <code>./launch_desktop.sh</code> (erkennt alte Prozesse automatisch und ersetzt sie).</div>';
+        b.innerHTML = '<div><b>Server-Version veraltet:</b> Der laufende Server kennt die neuen Endpoints (/api/state, /api/settings) noch nicht. Im Projektordner ausführen (ohne sudo): <code>./restart_server.sh</code> — beendet alle Prozesse auf Port 8765 und startet die aktuelle Version. Alternativ <code>./launch_desktop.sh</code>.</div>';
         const live = $("livePanel");
         live.parentNode.insertBefore(b, live);
       }
