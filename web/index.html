@@ -563,7 +563,18 @@
             </div>
             <div class="field">
               <label for="aiProvider">Provider</label>
-              <select id="aiProvider"></select>
+              <select id="aiProvider">
+                <option value="none">Keine externe KI (nur lokale Regeln)</option>
+                <option value="openai">OpenAI</option>
+                <option value="openrouter">OpenRouter</option>
+                <option value="google">Google Gemini</option>
+                <option value="deepseek">DeepSeek</option>
+                <option value="ollama">Lokales Ollama</option>
+              </select>
+              <div class="key-hint" style="margin-top:0.3rem;">
+                Optional: Ohne Provider läuft die Pipeline trotzdem — fehlgeschlagene Zeilen werden dann nur nicht KI-repariert.<br />
+                Optional: Works without a provider — failed lines simply won't be AI-repaired.
+              </div>
             </div>
             <div class="field">
               <label for="aiModel">Modell</label>
@@ -1142,10 +1153,13 @@
       if (!s) return;
       $("aiEnabled").checked = !!s.enabled;
       const sel = $("aiProvider");
-      sel.innerHTML = "";
-      Object.entries(s.providers || {}).forEach(([k, v]) => {
-        sel.appendChild(new Option(v.label, k));
-      });
+      // Rebuild from the API when available; static fallback options stay otherwise
+      if (s.providers && Object.keys(s.providers).length) {
+        sel.innerHTML = "";
+        Object.entries(s.providers).forEach(([k, v]) => {
+          sel.appendChild(new Option(v.label, k));
+        });
+      }
       sel.value = s.provider || "none";
       $("aiModel").value = s.model || "";
       $("aiBaseUrl").value = s.base_url || "";
@@ -1227,13 +1241,20 @@
     $("aiProvider").addEventListener("change", () => {
       const s = App.settings;
       const p = $("aiProvider").value;
-      if (s && s.providers && s.providers[p]) {
-        if (!$("aiModel").value || $("aiModel").dataset.auto === p) {
-          $("aiModel").value = s.providers[p].default_model || "";
-          $("aiModel").dataset.auto = p;
-        }
-        if (!$("aiBaseUrl").value) $("aiBaseUrl").value = s.providers[p].base_url || "";
+      const staticDefaults = {
+        none:       { base_url: "",                                              default_model: "" },
+        openai:     { base_url: "https://api.openai.com/v1",                       default_model: "gpt-4o" },
+        openrouter: { base_url: "https://openrouter.ai/api/v1",                    default_model: "anthropic/claude-3.5-sonnet" },
+        google:     { base_url: "https://generativelanguage.googleapis.com/v1beta", default_model: "gemini-2.0-flash" },
+        deepseek:   { base_url: "https://api.deepseek.com/v1",                     default_model: "deepseek-chat" },
+        ollama:     { base_url: "http://127.0.0.1:11434",                          default_model: "qwen2.5:7b" },
+      };
+      const info = (s && s.providers && s.providers[p]) || staticDefaults[p] || {};
+      if (!$("aiModel").value || $("aiModel").dataset.auto === p) {
+        $("aiModel").value = info.default_model || "";
+        $("aiModel").dataset.auto = p;
       }
+      if (!$("aiBaseUrl").value) $("aiBaseUrl").value = info.base_url || "";
     });
 
     /* ---------- boot ---------- */
