@@ -46,6 +46,8 @@ def compute_match_eq_gains(
     max_boost_db: float = 8.0,
     max_cut_db: float = -6.0,
     min_gain_db: float = 0.5,
+    body_boost_db: float = 0.0,
+    high_scale: float = 1.0,
 ) -> List[Tuple[float, float]]:
     """
     Spektrales EQ-Matching: vergleicht das gemittelte Spektrum des englischen
@@ -88,6 +90,9 @@ def compute_match_eq_gains(
         if rb is None or tb is None:
             continue
         g = (rb - ref_total) - (tb - tts_total)
+        # Grundton-Body: EN-Originale sind unten herum satter — dezenter Bias
+        if f0 < 500.0:
+            g += float(body_boost_db)
         g = float(np.clip(g, max_cut_db, max_boost_db))
         freqs.append((f0 + min(f1, f_max)) / 2.0)
         gains.append(g)
@@ -96,12 +101,16 @@ def compute_match_eq_gains(
         return []
     # Bänder glätten, um Kammfilter-Artefakte zu vermeiden
     gains = np.convolve(gains, [0.25, 0.5, 0.25], mode="same")
-    # Nur relevante Korrekturen behalten (hält die FFmpeg-Kette kurz)
-    return [
-        (round(float(f)), round(float(g), 2))
-        for f, g in zip(freqs, gains)
-        if abs(g) >= min_gain_db
-    ]
+    # Höhen konservativ angleichen: Breitband-Boosts > 4 kHz stapeln sich sonst
+    # und machen die Stimme hell/dünn statt voll (perzeptiv lauter).
+    out = []
+    for f, g in zip(freqs, gains):
+        g = float(g)
+        if f >= 4000.0:
+            g *= float(high_scale)
+        if abs(g) >= min_gain_db:
+            out.append((round(float(f)), round(g, 2)))
+    return out
 
 
 def process_audio_fx_and_export_ogg(
@@ -297,12 +306,17 @@ def main():
                     max_boost_db=float(eq_cfg.get("max_boost_db", 8.0)),
                     max_cut_db=float(eq_cfg.get("max_cut_db", -6.0)),
                     min_gain_db=float(eq_cfg.get("min_gain_db", 0.5)),
+                    body_boost_db=float(eq_cfg.get("body_boost_db", 0.0)),
+                    high_scale=float(eq_cfg.get("high_scale", 1.0)),
                 )
                 if eq_gains:
-                    eq_filters = ",".join(
-                        f"equalizer=f={f}:width_type=q:width=0.6:g={g:.2f}"
-                        for f, g in eq_gains
-                    )
+                    # FIR-Gain-Kurve (firequalizer): exakte, geglättete Korrektur
+                    # ohne die Überlagerungs-Artefakte gestapelter Einzel-EQs.
+                    curve = [(40.0, eq_gains[0][1])]
+                    curve += [(float(f), float(g)) for f, g in eq_gains]
+                    curve.append((11500.0, round(eq_gains[-1][1] * 0.5, 2)))
+                    entries = ";".join(f"entry({int(f)},{g})" for f, g in curve)
+                    eq_filters = f"firequalizer=gain_entry='{entries}'"
                     eq_match_info = eq_gains
 
         final_dur = process_audio_fx_and_export_ogg(

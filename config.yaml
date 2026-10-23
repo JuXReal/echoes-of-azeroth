@@ -133,13 +133,15 @@ audio_fx:
     quality: 4
     sample_rate: 44100
   eq_matching:
-    # Spektrales EQ-Matching: jeder deutsche Take wird pro Band an das
-    # Frequenzbild seines englischen Originals angeglichen (behebt den
-    # "dünnen" XTTS-Klang). Bänder: untere Grenze in Hz.
+    # Spektrales EQ-Matching: jeder deutsche Take wird per FIR-Kurve
+    # (firequalizer) an das Frequenzbild seines englischen Originals
+    # angeglichen (behebt den "dünnen" XTTS-Klang). Bänder: untere Grenze in Hz.
     enabled: true
-    max_boost_db: 8.0
+    max_boost_db: 4.0
     max_cut_db: -6.0
     min_gain_db: 0.5       # kleinere Korrekturen werden übersprungen
+    body_boost_db: 1.5     # Grundton-Bias: EN-Originale sind unten herum satter
+    high_scale: 0.7        # Höhen-Korrekturen nur mit 70 % anwenden
     bands: [80, 120, 180, 250, 350, 500, 700, 1000, 1400, 2000, 2800, 4000, 5600, 8000, 11000]
   race_profiles:
     "Blood Elf":
