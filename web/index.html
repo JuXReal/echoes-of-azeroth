@@ -386,6 +386,11 @@
     <select id="raceFilter" class="filter-select">
       <option value="all">Alle Rassen / Audio-FX</option>
     </select>
+    <select id="qaStatusFilter" class="filter-select" style="border-color: rgba(255, 77, 109, 0.5); color: #ff859c; font-weight: 600;">
+      <option value="all">Status: Alle Quests</option>
+      <option value="failed">⚠️ Nur Fehler / Review nötig (CER &gt; 15% oder Loop)</option>
+      <option value="passed">✓ Nur bestandene Quests</option>
+    </select>
     <button class="btn" onclick="playAllGerman()">▶ Alle DE hintereinander abspielen</button>
     <button class="btn secondary" onclick="stopAllAudio()">⏹ Stop</button>
   </div>
@@ -578,10 +583,18 @@
       const q = document.getElementById('searchInput').value.toLowerCase().trim();
       const spk = document.getElementById('speakerFilter').value;
       const rc = document.getElementById('raceFilter').value;
+      const qaStat = document.getElementById('qaStatusFilter') ? document.getElementById('qaStatusFilter').value : 'all';
 
       const filtered = allEntries.filter(e => {
         if (spk !== 'all' && e.npc_name !== spk) return false;
         if (rc !== 'all' && e.race !== rc) return false;
+        if (qaStat === 'failed') {
+          const isPassed = !e.qa_result || (e.qa_result.passed !== false && e.qa_result.cer <= 0.15);
+          if (isPassed) return false;
+        } else if (qaStat === 'passed') {
+          const isFailed = e.qa_result && (e.qa_result.passed === false || e.qa_result.cer > 0.15);
+          if (isFailed) return false;
+        }
         if (!q) return true;
         const hay = `${e.entry_id} ${e.quest_title_de} ${e.npc_name} ${e.clean_de_text} ${e.zone}`.toLowerCase();
         return hay.includes(q);
@@ -664,6 +677,9 @@
     document.getElementById('searchInput').addEventListener('input', renderCards);
     document.getElementById('speakerFilter').addEventListener('change', renderCards);
     document.getElementById('raceFilter').addEventListener('change', renderCards);
+    if (document.getElementById('qaStatusFilter')) {
+      document.getElementById('qaStatusFilter').addEventListener('change', renderCards);
+    }
 
     // Initial check: if a job is already running on page load, start polling immediately
     pollJobStatus();
