@@ -108,6 +108,22 @@
     .stat .v.red { color: var(--red); }
     .stat .v.purple { color: var(--purple); }
 
+    .lang-toggle {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      color: var(--text-2);
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      padding: 0.45rem 0.9rem;
+      cursor: pointer;
+      font-family: var(--sans);
+      transition: all 0.15s;
+    }
+    .lang-toggle:hover { border-color: var(--gold-border); color: var(--gold); }
+    .lang-toggle .active-lang { color: var(--gold); }
+
     .status-badge {
       display: inline-flex; align-items: center; gap: 0.5rem;
       padding: 0.45rem 0.95rem; border-radius: 999px;
@@ -208,6 +224,7 @@
     .current-card .title { font-size: 0.98rem; font-weight: 650; margin: 0.2rem 0; }
     .current-card .meta { font-size: 0.76rem; color: var(--text-2); display: flex; gap: 0.9rem; flex-wrap: wrap; }
     .current-card .meta span { display: inline-flex; align-items: center; gap: 0.3rem; }
+    .listen-row { display: flex; gap: 0.4rem; flex-wrap: wrap; margin-top: 0.6rem; }
     .chip-status {
       display: inline-flex; align-items: center; gap: 0.35rem;
       font-size: 0.7rem; font-weight: 700; padding: 0.18rem 0.6rem;
@@ -374,11 +391,13 @@
       border-radius: var(--radius-sm); padding: 0.5rem 0.8rem;
     }
     .player-row.de { border-color: var(--gold-border); background: linear-gradient(90deg, rgba(240,185,60,0.05), rgba(0,0,0,0.24)); }
+    .player-row.raw { border-color: var(--purple-border); background: linear-gradient(90deg, rgba(176,108,245,0.05), rgba(0,0,0,0.24)); }
     .lang-tag { min-width: 118px; display: flex; flex-direction: column; }
     .lang-tag .main { font-size: 0.78rem; font-weight: 700; }
     .lang-tag .sub { font-size: 0.66rem; color: var(--text-3); }
     .player-row.de .lang-tag .main { color: var(--gold); }
-    .player-row:not(.de) .lang-tag .main { color: var(--blue); }
+    .player-row.raw .lang-tag .main { color: var(--purple); }
+    .player-row:not(.de):not(.raw) .lang-tag .main { color: var(--blue); }
     audio { flex: 1; height: 34px; min-width: 0; }
 
     .card-actions { display: flex; gap: 0.45rem; flex-wrap: wrap; margin-top: 0.5rem; }
@@ -392,6 +411,7 @@
     .btn-mini:hover { color: var(--text); border-color: var(--border-strong); }
     .btn-mini.gold { color: var(--gold); border-color: var(--gold-border); background: var(--gold-soft); }
     .btn-mini.blue { color: var(--blue); }
+    .btn-mini.purple { color: var(--purple); border-color: var(--purple-border); background: var(--purple-soft); }
     .btn-mini.red { color: var(--red); border-color: rgba(255,97,97,0.35); background: var(--red-soft); }
     .btn-mini:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -458,38 +478,35 @@
 <body>
   <div class="wrap">
     <div class="ethics-banner" id="ethicsBanner">
-      <div>
-        <b>Community-Hinweis:</b> Bitte lade generierte Sprachpakete nicht eigenmächtig auf CurseForge/Wago hoch —
-        respektiere die Arbeit von <b>Tuubby</b> &amp; dem Chatty-Little-NPC-Team. Die finale Qualitätskontrolle
-        im Studio liegt bei dir.
-      </div>
-      <button class="close" onclick="document.getElementById('ethicsBanner').style.display='none'" title="Schließen">✕</button>
+      <div id="ethicsText"></div>
+      <button class="close" onclick="document.getElementById('ethicsBanner').style.display='none'" title="✕">✕</button>
     </div>
 
     <header>
       <div class="brand">
-        <div class="kicker">World of Warcraft · deDE Localization</div>
+        <div class="kicker" data-i18n="kicker"></div>
         <h1>Echoes of Azeroth <span class="thin">— Pro Audio Studio</span></h1>
-        <p>XTTS-v2 · Faster-Whisper QA · EBU R128 (−16 LUFS) · optionale KI-Reparatur</p>
+        <p data-i18n="brand_sub"></p>
       </div>
       <div class="stats-row">
-        <div class="stat"><div class="v" id="statTotal">—</div><div class="l">Quests</div></div>
-        <div class="stat"><div class="v red" id="statProblems">—</div><div class="l">Probleme</div></div>
-        <div class="stat"><div class="v green" id="statPass">—</div><div class="l">QA OK</div></div>
+        <div class="stat"><div class="v" id="statTotal">—</div><div class="l" data-i18n="stat_quests"></div></div>
+        <div class="stat"><div class="v red" id="statProblems">—</div><div class="l" data-i18n="stat_problems"></div></div>
+        <div class="stat"><div class="v green" id="statPass">—</div><div class="l" data-i18n="stat_ok"></div></div>
         <div class="stat"><div class="v" id="statCer">—</div><div class="l">Ø CER</div></div>
-        <div class="stat"><div class="v purple" id="statAI">—</div><div class="l">AI-Calls</div></div>
-        <div class="status-badge" id="liveStatusBadge"><span class="dot"></span><span id="statusBadgeText">Idle</span></div>
+        <div class="stat"><div class="v purple" id="statAI">—</div><div class="l" data-i18n="stat_ai"></div></div>
+        <div class="status-badge" id="liveStatusBadge"><span class="dot"></span><span id="statusBadgeText" data-i18n="idle"></span></div>
+        <button class="lang-toggle" id="langToggle" onclick="toggleLang()" title="Language / Sprache"></button>
       </div>
     </header>
 
     <!-- ================= LIVE VALIDATION ================= -->
     <section class="panel" id="livePanel">
-      <div class="panel-title">Live-Validierung &amp; Pipeline-Status</div>
+      <div class="panel-title" data-i18n="panel_live"></div>
       <div class="steps" id="stepChips"></div>
       <div class="live-grid">
         <div class="progress-block">
           <div class="progress-head">
-            <span id="liveStepLabel">Bereit</span>
+            <span id="liveStepLabel" data-i18n="ready"></span>
             <span><b id="liveCounts">0 / 0</b> · ETA <b id="liveEta">—</b></span>
           </div>
           <div class="bar"><i id="progressFill"></i></div>
@@ -501,14 +518,15 @@
               <span id="curStatusChip"></span>
               <span id="curCer">—</span>
             </div>
+            <div class="listen-row" id="curListenRow"></div>
           </div>
-          <div class="empty-note" id="liveIdleNote">Kein Pipeline-Job aktiv. Starte eine Aktion im Launchpad, um Live-Fortschritt zu sehen.</div>
+          <div class="empty-note" id="liveIdleNote"></div>
           <div class="kv-grid" id="liveKvGrid"></div>
         </div>
         <div class="ai-feed">
-          <div class="panel-title" style="margin-bottom:0.6rem;">KI-Aktivität (Repair nach Fehlversuchen)</div>
+          <div class="panel-title" style="margin-bottom:0.6rem;" data-i18n="panel_ai"></div>
           <div class="ai-line" id="aiProviderLine">
-            <span class="provider" id="aiProviderName">Inaktiv</span>
+            <span class="provider" id="aiProviderName" data-i18n="ai_inactive"></span>
             <span class="t" id="aiProviderMeta"></span>
             <span style="margin-left:auto" id="aiProviderOk"></span>
           </div>
@@ -520,7 +538,7 @@
 
     <!-- ================= LAUNCHPAD ================= -->
     <section class="panel">
-      <div class="panel-title">Launchpad · Pipeline &amp; Quality Control</div>
+      <div class="panel-title" data-i18n="panel_launch"></div>
       <div class="launch-row">
         <select id="launchExpansion">
           <option value="Midnight">Midnight (12.0)</option>
@@ -531,13 +549,13 @@
           <option value="Vanilla">Vanilla / Classic (1.0)</option>
         </select>
         <select id="launchMode" style="flex:1;min-width:280px;">
-          <option value="audit_100">100-Quest Zufalls-Audit (schnell)</option>
-          <option value="audit_full">Vollständiger Audit aller gemasterten Dateien</option>
-          <option value="pilot_20">20-Quest Benchmark-Pilot + Audit</option>
-          <option value="full_expansion">Vollständige Expansion (Quests + Gossip + Audit)</option>
+          <option value="audit_100" data-i18n="mode_audit100"></option>
+          <option value="audit_full" data-i18n="mode_auditfull"></option>
+          <option value="pilot_20" data-i18n="mode_pilot"></option>
+          <option value="full_expansion" data-i18n="mode_full"></option>
         </select>
-        <button class="btn gold" id="startJobBtn" onclick="startJob()">▶ Start</button>
-        <button class="btn ghost" onclick="toggleConsole()" id="consoleToggleBtn">Konsole</button>
+        <button class="btn gold" id="startJobBtn" onclick="startJob()" data-i18n="start"></button>
+        <button class="btn ghost" onclick="toggleConsole()" id="consoleToggleBtn" data-i18n="console"></button>
       </div>
       <pre class="console" id="jobConsole"></pre>
     </section>
@@ -546,91 +564,78 @@
       <!-- ================= MAIN ================= -->
       <main>
         <div class="controls">
-          <input type="text" id="searchInput" class="search" placeholder="Suche: Quest-ID, Titel, NPC oder Text …" />
-          <select id="speakerFilter"><option value="all">Alle Sprecher</option></select>
-          <select id="raceFilter"><option value="all">Alle Rassen / FX</option></select>
+          <input type="text" id="searchInput" class="search" data-i18n-ph="search_ph" />
+          <select id="speakerFilter"><option value="all" data-i18n="all_speakers"></option></select>
+          <select id="raceFilter"><option value="all" data-i18n="all_races"></option></select>
           <select id="sortSelect">
-            <option value="file">Sortierung: Datei</option>
-            <option value="cer">Sortierung: Schlechtestes CER zuerst</option>
-            <option value="title">Sortierung: Titel</option>
+            <option value="file" data-i18n="sort_file"></option>
+            <option value="cer" data-i18n="sort_cer"></option>
+            <option value="title" data-i18n="sort_title"></option>
           </select>
         </div>
         <div class="status-chips" id="statusChips"></div>
-        <div class="grid" id="playlistContainer"><div class="empty-state"><div class="big">Noch keine Daten</div>Starte den Pilot oder die volle Expansion — danach erscheinen die Quests hier.</div></div>
-        <div class="load-more-wrap"><button class="btn ghost" id="loadMoreBtn" style="display:none;" onclick="loadMore()">Mehr laden</button></div>
+        <div class="grid" id="playlistContainer"><div class="empty-state"><div class="big" data-i18n="no_data"></div><span data-i18n="no_data_hint"></span></div></div>
+        <div class="load-more-wrap"><button class="btn ghost" id="loadMoreBtn" style="display:none;" onclick="loadMore()" data-i18n="load_more"></button></div>
       </main>
 
       <!-- ================= ASIDE ================= -->
       <aside>
         <section class="panel">
-          <div class="panel-title">Qualitäts-Übersicht</div>
+          <div class="panel-title" data-i18n="panel_overview"></div>
           <div class="ov-rows" id="overviewRows"></div>
         </section>
 
         <section class="panel">
-          <div class="panel-title">Independent Audit</div>
-          <div id="auditBody"><div class="empty-note">Noch kein Audit-Report vorhanden.</div></div>
+          <div class="panel-title" data-i18n="panel_audit"></div>
+          <div id="auditBody"><div class="empty-note" data-i18n="no_audit"></div></div>
         </section>
 
         <section class="panel">
-          <div class="panel-title">KI-Einstellungen · Repair</div>
+          <div class="panel-title" data-i18n="panel_aisettings"></div>
           <div class="form">
             <div class="switch">
               <input type="checkbox" id="aiEnabled" />
-              <label for="aiEnabled" style="margin:0;text-transform:none;letter-spacing:0;font-size:0.82rem;">KI-Reparatur aktivieren</label>
+              <label for="aiEnabled" style="margin:0;text-transform:none;letter-spacing:0;font-size:0.82rem;" data-i18n="ai_enable"></label>
             </div>
             <div class="field">
-              <label for="aiProvider">Provider</label>
-              <select id="aiProvider">
-                <option value="none">Keine externe KI (nur lokale Regeln)</option>
-                <option value="openai">OpenAI</option>
-                <option value="openrouter">OpenRouter</option>
-                <option value="google">Google Gemini</option>
-                <option value="deepseek">DeepSeek</option>
-                <option value="ollama">Lokales Ollama</option>
-              </select>
-              <div class="key-hint" style="margin-top:0.3rem;">
-                Optional: Ohne Provider läuft die Pipeline trotzdem — fehlgeschlagene Zeilen werden dann nur nicht KI-repariert.<br />
-                Optional: Works without a provider — failed lines simply won't be AI-repaired.
-              </div>
+              <label for="aiProvider" data-i18n="ai_provider"></label>
+              <select id="aiProvider"></select>
+              <div class="key-hint" id="aiProviderHint" style="margin-top:0.3rem;"></div>
               <div class="key-hint" id="pricingHint" style="margin-top:0.25rem;"></div>
             </div>
             <div class="field">
-              <label for="aiModel">Modell</label>
+              <label for="aiModel" data-i18n="ai_model"></label>
               <div class="model-row">
                 <select id="aiModel" style="flex:1;"></select>
-                <button class="btn" id="aiModelsBtn" onclick="listModels()" style="padding:0.5rem 0.85rem;white-space:nowrap;">Modelle laden</button>
+                <button class="btn" id="aiModelsBtn" onclick="listModels()" style="padding:0.5rem 0.85rem;white-space:nowrap;" data-i18n="ai_models_load"></button>
               </div>
-              <input type="text" id="aiModelCustom" placeholder="Eigene Modell-ID …" style="display:none;margin-top:0.35rem;" />
+              <input type="text" id="aiModelCustom" data-i18n-ph="ai_model_custom" style="display:none;margin-top:0.35rem;" />
             </div>
             <div class="field">
-              <label for="aiBaseUrl">Base-URL (optional)</label>
-              <input type="text" id="aiBaseUrl" placeholder="Standard des Providers" />
+              <label for="aiBaseUrl" data-i18n="ai_baseurl"></label>
+              <input type="text" id="aiBaseUrl" data-i18n-ph="ai_baseurl_ph" />
             </div>
             <div class="form-row">
               <div class="field">
-                <label for="aiTrigger">Einsatz nach</label>
+                <label for="aiTrigger" data-i18n="ai_trigger"></label>
                 <input type="text" id="aiTrigger" inputmode="numeric" value="3" />
               </div>
               <div class="field">
-                <label for="aiKey">API-Key</label>
+                <label for="aiKey" data-i18n="ai_key"></label>
                 <input type="password" id="aiKey" placeholder="••••••••" autocomplete="off" />
               </div>
             </div>
-            <div class="key-hint" id="aiKeyHint">
-              <b>Key bleibt lokal:</b> wird ausschließlich in die git-ignorierte <code>.env</code> geschrieben —
-              niemals in config.yaml, Reports oder GitHub.
-            </div>
+            <div class="key-hint" id="aiKeyHint"></div>
             <div class="form-row">
-              <button class="btn gold" onclick="saveSettings()" style="justify-content:center;">Speichern</button>
-              <button class="btn" onclick="testSettings()" style="justify-content:center;">Verbindung testen</button>
+              <button class="btn gold" onclick="saveSettings()" style="justify-content:center;" data-i18n="save"></button>
+              <button class="btn" onclick="testSettings()" style="justify-content:center;" data-i18n="ai_test"></button>
             </div>
             <div class="test-result" id="testResult"></div>
           </div>
         </section>
 
         <section class="panel">
-          <div class="panel-title">Letzte Aktivität</div>
+          <div class="panel-title" data-i18n="panel_activity"></div>
           <div id="activityFeed"><div class="empty-note">—</div></div>
         </section>
       </aside>
@@ -642,6 +647,168 @@
   <script>
     "use strict";
 
+    const I18N = {
+      de: {
+        kicker: "World of Warcraft · deDE Localization",
+        brand_sub: "XTTS-v2 · Faster-Whisper QA · EBU R128 (−16 LUFS) · optionale KI-Reparatur",
+        ethics: "Bitte lade generierte Sprachpakete nicht eigenmächtig auf CurseForge/Wago hoch — respektiere die Arbeit von <b>Tuubby</b> &amp; dem Chatty-Little-NPC-Team. Die finale Qualitätskontrolle im Studio liegt bei dir.",
+        stat_quests: "Quests", stat_problems: "Probleme", stat_ok: "QA OK", stat_ai: "AI-Calls",
+        idle: "Idle", running: "Läuft", done: "Fertig", error: "Fehler",
+        ready: "Bereit", step_of: "Schritt", eta: "ETA",
+        no_job: "Kein Pipeline-Job aktiv. Starte eine Aktion im Launchpad, um Live-Fortschritt zu sehen.",
+        prepping: "Schritt wird vorbereitet …",
+        panel_live: "Live-Validierung & Pipeline-Status",
+        panel_ai: "KI-Aktivität (Repair nach Fehlversuchen)",
+        panel_launch: "Launchpad · Pipeline & Quality Control",
+        panel_overview: "Qualitäts-Übersicht",
+        panel_audit: "Independent Audit",
+        panel_aisettings: "KI-Einstellungen · Repair",
+        panel_activity: "Letzte Aktivität",
+        ai_inactive: "Inaktiv", ai_none_configured: "(keine externe KI konfiguriert)", ai_ready: "✦ bereit", ai_off: "◌ aus",
+        ai_no_calls: "Noch keine KI-Aufrufe in diesem Lauf.",
+        kv_processed: "Verarbeitet", kv_passed: "Bestanden", kv_failed: "Probleme", kv_retried: "Retries", kv_repaired: "KI-repariert",
+        kv_tokens: "Tokens gesamt", kv_prompt: "Prompt", kv_completion: "Antwort", kv_cost: "Kosten (USD)",
+        step1: "Analyse", step2: "Voice-Seeds", step3: "Script", step4: "Synthese", step5: "Validierung", step6: "Mastering", step7: "Audit",
+        validating: "Prüfung…", passed: "✓ Bestanden", failed: "✕ Fehlgeschlagen", ai_repair: "KI-Repair",
+        attempt: "↻ Versuch", synthesizing: "Synthese…", cached: "Gecacht", mastering: "Mastering…", auditing: "Audit…",
+        scripting: "Script…", seed: "Seed…", scraping: "Scraping…",
+        npc: "NPC", cer: "CER",
+        listen: "Live anhören", listen_en: "▶ EN Original", listen_raw: "▶ RAW (ungemastert)", listen_de: "▶ DE (gemastert)",
+        mode_audit100: "100-Quest Zufalls-Audit (schnell)",
+        mode_auditfull: "Vollständiger Audit aller gemasterten Dateien",
+        mode_pilot: "20-Quest Benchmark-Pilot + Audit",
+        mode_full: "Vollständige Expansion (Quests + Gossip + Audit)",
+        start: "▶ Start", console: "Konsole", console_hide: "Konsole ausblenden",
+        search_ph: "Suche: Quest-ID, Titel, NPC oder Text …",
+        all_speakers: "Alle Sprecher", all_races: "Alle Rassen / FX",
+        sort_file: "Sortierung: Datei", sort_cer: "Sortierung: Schlechtestes CER zuerst", sort_title: "Sortierung: Titel",
+        chip_all: "Alle", chip_fail: "Probleme", chip_pass: "OK", chip_open: "Offen / ungeprüft",
+        no_data: "Noch keine Daten", no_data_hint: "Starte den Pilot oder die volle Expansion — danach erscheinen die Quests hier.",
+        no_results: "Keine Einträge gefunden", no_results_hint: "Filter oder Suche anpassen.",
+        load_more: "Mehr laden", load_more_more: "weitere von",
+        fx: "FX", in_progress: "● in Arbeit", audit_pass: "Audit ✓", audit_fail: "Audit ✕",
+        qa_match: "QA", attempts_1: "Versuch", attempts_n: "Versuche",
+        ai_repaired_badge: "✦ KI-repariert",
+        processing_now: "wird gerade verarbeitet …", audio_no_qa: "Audio vorhanden — QA steht aus", not_generated: "noch nicht generiert",
+        script: "Script", phonetics: "Phonetik", standard_phonetics: "Standard-Phonetik", direction: "Regie", whisper: "Whisper",
+        de_mastered: "DE Lokalisiert", en_original: "EN Original", raw_unmastered: "RAW Ungemastert",
+        reference: "Referenz", unmastered_sub: "24 kHz WAV · vor Mastering",
+        ab_compare: "A/B vergleichen", play_de: "▶ DE", regen: "↻ Neu generieren", voice_seed: "Voice-Seed",
+        not_rendered: "Noch nicht gerendert (Schritt 6)",
+        ov_total: "Gesamt-Quests", ov_validated: "Validierte Quests", ov_passed: "QA bestanden",
+        ov_problems: "Mit Problemen", ov_repaired: "KI-repariert", ov_retries: "Retries", ov_success: "Erfolgsquote (QA)",
+        no_audit: "Noch kein Audit-Report vorhanden.",
+        aud_checked: "Geprüft", aud_passed: "Bestanden", aud_avgcer: "Ø Post-FX CER", aud_ready: "Release-ready",
+        aud_yes: "✓ Ja", aud_no: "— noch nicht",
+        ai_enable: "KI-Reparatur aktivieren", ai_provider: "Provider",
+        ai_provider_hint: "Optional: Ohne Provider läuft die Pipeline trotzdem — fehlgeschlagene Zeilen werden dann nur nicht KI-repariert.",
+        ai_model: "Modell", ai_models_load: "Modelle laden", ai_models_loading: "Lade …",
+        ai_model_custom: "Eigene Modell-ID …", ai_baseurl: "Base-URL (optional)", ai_baseurl_ph: "Standard des Providers",
+        ai_trigger: "Einsatz nach", ai_key: "API-Key",
+        key_set: "Key gespeichert: liegt lokal in der git-ignorierten <code>.env</code> — nie auf GitHub.",
+        key_unset: "Kein Key gesetzt. Keys werden ausschließlich in die git-ignorierte <code>.env</code> geschrieben.",
+        save: "Speichern", ai_test: "Verbindung testen",
+        pricing: "Preisbasis", pricing_est: "(Schätzung)", pricing_per: "pro 1M Tokens (Input/Output)",
+        testing: "Teste Verbindung …", models_error: "Keine Modelle gefunden.",
+        saved_toast: "KI-Einstellungen gespeichert (Key bleibt lokal in .env)",
+        save_error: "Speichern fehlgeschlagen",
+        job_started: "Job gestartet", job_start_error: "Start fehlgeschlagen",
+        job_running_busy: "Ein Job läuft bereits — bitte warten.",
+        regen_started: "Regenerierung gestartet (TTS → QA → FX)", regen_error: "Regenerierung fehlgeschlagen",
+        job_done: "Job abgeschlossen ✓", job_failed: "Job mit Fehlern beendet.",
+        mismatch: "Server-Version veraltet: Der laufende Server kennt die neuen Endpoints (/api/state, /api/settings) noch nicht. Im Projektordner ausführen (ohne sudo): <code>./restart_server.sh</code> — beendet alle Prozesse auf Port 8765 und startet die aktuelle Version. Alternativ <code>./launch_desktop.sh</code>.",
+        models_loaded: "Modelle geladen", activity_done: "abgeschlossen", activity_running: "läuft",
+        activity_ai: "KI", ai_ok: "ok", ai_error: "fehler",
+      },
+      en: {
+        kicker: "World of Warcraft · deDE Localization",
+        brand_sub: "XTTS-v2 · Faster-Whisper QA · EBU R128 (−16 LUFS) · optional AI repair",
+        ethics: "Please do not upload generated voice packs to CurseForge/Wago on your own — respect the work of <b>Tuubby</b> &amp; the Chatty Little NPC team. Final quality control in the studio is up to you.",
+        stat_quests: "Quests", stat_problems: "Problems", stat_ok: "QA OK", stat_ai: "AI Calls",
+        idle: "Idle", running: "Running", done: "Done", error: "Error",
+        ready: "Ready", step_of: "Step", eta: "ETA",
+        no_job: "No pipeline job active. Start an action in the launchpad to see live progress.",
+        prepping: "Preparing step …",
+        panel_live: "Live Validation & Pipeline Status",
+        panel_ai: "AI Activity (repair after failed attempts)",
+        panel_launch: "Launchpad · Pipeline & Quality Control",
+        panel_overview: "Quality Overview",
+        panel_audit: "Independent Audit",
+        panel_aisettings: "AI Settings · Repair",
+        panel_activity: "Recent Activity",
+        ai_inactive: "Inactive", ai_none_configured: "(no external AI configured)", ai_ready: "✦ ready", ai_off: "◌ off",
+        ai_no_calls: "No AI calls in this run yet.",
+        kv_processed: "Processed", kv_passed: "Passed", kv_failed: "Problems", kv_retried: "Retries", kv_repaired: "AI-repaired",
+        kv_tokens: "Total tokens", kv_prompt: "Prompt", kv_completion: "Completion", kv_cost: "Cost (USD)",
+        step1: "Analysis", step2: "Voice Seeds", step3: "Script", step4: "Synthesis", step5: "Validation", step6: "Mastering", step7: "Audit",
+        validating: "Checking…", passed: "✓ Passed", failed: "✕ Failed", ai_repair: "AI repair",
+        attempt: "↻ Attempt", synthesizing: "Synthesizing…", cached: "Cached", mastering: "Mastering…", auditing: "Auditing…",
+        scripting: "Scripting…", seed: "Seed…", scraping: "Scraping…",
+        npc: "NPC", cer: "CER",
+        listen: "Listen live", listen_en: "▶ EN Original", listen_raw: "▶ RAW (unmastered)", listen_de: "▶ DE (mastered)",
+        mode_audit100: "100-quest random audit (fast)",
+        mode_auditfull: "Full audit of all mastered files",
+        mode_pilot: "20-quest benchmark pilot + audit",
+        mode_full: "Full expansion (quests + gossip + audit)",
+        start: "▶ Start", console: "Console", console_hide: "Hide console",
+        search_ph: "Search: quest ID, title, NPC or text …",
+        all_speakers: "All speakers", all_races: "All races / FX",
+        sort_file: "Sort: file", sort_cer: "Sort: worst CER first", sort_title: "Sort: title",
+        chip_all: "All", chip_fail: "Problems", chip_pass: "OK", chip_open: "Open / unchecked",
+        no_data: "No data yet", no_data_hint: "Start the pilot or the full expansion — quests will appear here afterwards.",
+        no_results: "No entries found", no_results_hint: "Adjust filters or search.",
+        load_more: "Load more", load_more_more: "more of",
+        fx: "FX", in_progress: "● in progress", audit_pass: "Audit ✓", audit_fail: "Audit ✕",
+        qa_match: "QA", attempts_1: "attempt", attempts_n: "attempts",
+        ai_repaired_badge: "✦ AI-repaired",
+        processing_now: "being processed right now …", audio_no_qa: "Audio exists — QA pending", not_generated: "not generated yet",
+        script: "Script", phonetics: "Phonetics", standard_phonetics: "Standard phonetics", direction: "Direction", whisper: "Whisper",
+        de_mastered: "DE Localized", en_original: "EN Original", raw_unmastered: "RAW Unmastered",
+        reference: "Reference", unmastered_sub: "24 kHz WAV · pre-mastering",
+        ab_compare: "A/B compare", play_de: "▶ DE", regen: "↻ Regenerate", voice_seed: "Voice Seed",
+        not_rendered: "Not rendered yet (step 6)",
+        ov_total: "Total quests", ov_validated: "Validated quests", ov_passed: "QA passed",
+        ov_problems: "With problems", ov_repaired: "AI-repaired", ov_retries: "Retries", ov_success: "Success rate (QA)",
+        no_audit: "No audit report yet.",
+        aud_checked: "Checked", aud_passed: "Passed", aud_avgcer: "Avg post-FX CER", aud_ready: "Release-ready",
+        aud_yes: "✓ Yes", aud_no: "— not yet",
+        ai_enable: "Enable AI repair", ai_provider: "Provider",
+        ai_provider_hint: "Optional: the pipeline works without a provider — failed lines simply won't be AI-repaired.",
+        ai_model: "Model", ai_models_load: "Load models", ai_models_loading: "Loading …",
+        ai_model_custom: "Custom model ID …", ai_baseurl: "Base URL (optional)", ai_baseurl_ph: "Provider default",
+        ai_trigger: "Use after", ai_key: "API Key",
+        key_set: "Key stored: lives only in the git-ignored <code>.env</code> — never on GitHub.",
+        key_unset: "No key set. Keys are written exclusively to the git-ignored <code>.env</code>.",
+        save: "Save", ai_test: "Test connection",
+        pricing: "Pricing basis", pricing_est: "(estimate)", pricing_per: "per 1M tokens (input/output)",
+        testing: "Testing connection …", models_error: "No models found.",
+        saved_toast: "AI settings saved (key stays local in .env)",
+        save_error: "Saving failed",
+        job_started: "Job started", job_start_error: "Failed to start",
+        job_running_busy: "A job is already running — please wait.",
+        regen_started: "Regeneration started (TTS → QA → FX)", regen_error: "Regeneration failed",
+        job_done: "Job finished ✓", job_failed: "Job finished with errors.",
+        mismatch: "Outdated server version: the running server does not know the new endpoints (/api/state, /api/settings). Run (no sudo): <code>./restart_server.sh</code> — it stops everything on port 8765 and starts the current version. Alternatively <code>./launch_desktop.sh</code>.",
+        models_loaded: "Models loaded", activity_done: "finished", activity_running: "running",
+        activity_ai: "AI", ai_ok: "ok", ai_error: "error",
+      },
+    };
+
+    const PROVIDER_LABELS = {
+      none:       { de: "Keine externe KI (nur lokale Regeln)", en: "No external AI (local rules only)" },
+      openai:     { de: "OpenAI", en: "OpenAI" },
+      openrouter: { de: "OpenRouter", en: "OpenRouter" },
+      google:     { de: "Google Gemini", en: "Google Gemini" },
+      deepseek:   { de: "DeepSeek", en: "DeepSeek" },
+      ollama:     { de: "Lokales Ollama", en: "Local Ollama" },
+    };
+
+    let LANG = "de";
+    try { LANG = localStorage.getItem("eoa_lang") || "de"; } catch (e) { LANG = "de"; }
+    if (LANG !== "de" && LANG !== "en") LANG = "de";
+
+    const t = (k) => (I18N[LANG] && I18N[LANG][k]) || I18N.de[k] || k;
+
     const App = {
       entries: [],
       audit: null,
@@ -649,6 +816,7 @@
       settings: null,
       visible: 60,
       modelPricing: {},
+      liveAudio: null,
       filters: { q: "", speaker: "all", race: "all", status: "all", sort: "file" },
     };
 
@@ -692,15 +860,48 @@
 
     function fmtNum(num) {
       if (num == null || isNaN(num)) return "0";
-      return Number(num).toLocaleString("de-DE");
+      return Number(num).toLocaleString(LANG === "de" ? "de-DE" : "en-US");
+    }
+
+    /* ---------- i18n ---------- */
+    function applyI18n() {
+      document.documentElement.lang = LANG;
+      document.querySelectorAll("[data-i18n]").forEach((el) => { el.textContent = t(el.dataset.i18n); });
+      document.querySelectorAll("[data-i18n-ph]").forEach((el) => { el.placeholder = t(el.dataset.i18nPh); });
+      $("ethicsText").innerHTML = t("ethics");
+      // AI provider options (server labels are German-only)
+      const prov = $("aiProvider");
+      if (prov) {
+        const cur = prov.value || (App.settings && App.settings.provider) || "none";
+        prov.innerHTML = "";
+        Object.keys(PROVIDER_LABELS).forEach((k) => {
+          prov.appendChild(new Option(PROVIDER_LABELS[k][LANG] || PROVIDER_LABELS[k].de, k));
+        });
+        prov.value = cur;
+      }
+      $("langToggle").innerHTML = LANG === "de"
+        ? '<span class="active-lang">DE</span> / EN'
+        : 'DE / <span class="active-lang">EN</span>';
+      // re-render dynamic content
+      renderLive();
+      renderStats();
+      renderStatusChips();
+      renderGrid();
+      renderAudit();
+      updatePricingHint();
+      if (App.settings) fillSettingsForm();
+    }
+
+    function toggleLang() {
+      LANG = LANG === "de" ? "en" : "de";
+      try { localStorage.setItem("eoa_lang", LANG); } catch (e) { /* private mode */ }
+      applyI18n();
     }
 
     /* ---------- entry status ---------- */
     function entryStatus(e) {
       const cur = App.live.state && App.live.state.current;
-      if (cur && cur.entry_id === e.entry_id && (App.live.running || cur.status === "passed" || cur.status === "failed")) {
-        if (App.live.running) return "processing";
-      }
+      if (cur && cur.entry_id === e.entry_id && App.live.running) return "processing";
       const qa = e.qa_result;
       if (qa) return (qa.passed !== false && qa.cer <= 0.15) ? "pass" : "fail";
       const hasAudio = e.final_ogg_duration_sec != null || e.final_ogg_path || e.raw_tts_wav;
@@ -708,11 +909,11 @@
     }
 
     const STATUS_META = {
-      pass:       { label: "OK",        cls: "st-pass",    chip: '<span class="chip-status pass">✓ OK</span>' },
-      fail:       { label: "Problem",   cls: "st-fail",    chip: '<span class="chip-status fail">✕ Problem</span>' },
-      pending:    { label: "Offen",     cls: "st-pending", chip: '<span class="chip-status validating">◌ Offen</span>' },
-      unverified: { label: "Ungeprüft", cls: "st-unverified", chip: '<span class="chip-status validating">◌ Ungeprüft</span>' },
-      processing: { label: "In Arbeit", cls: "st-processing", chip: '<span class="chip-status retry">▶ In Arbeit</span>' },
+      pass:       { cls: "st-pass",         chip: () => `<span class="chip-status pass">✓ ${t("chip_pass")}</span>` },
+      fail:       { cls: "st-fail",         chip: () => `<span class="chip-status fail">✕ ${t("chip_fail")}</span>` },
+      pending:    { cls: "st-pending",      chip: () => `<span class="chip-status validating">◌ ${t("chip_open").split(" / ")[0]}</span>` },
+      unverified: { cls: "st-unverified",   chip: () => `<span class="chip-status validating">◌ ${t("chip_open").split(" / ")[1] || t("chip_open")}</span>` },
+      processing: { cls: "st-processing",   chip: () => `<span class="chip-status retry">▶ ${t("in_progress").replace("● ", "")}</span>` },
     };
 
     /* ---------- playlist ---------- */
@@ -721,21 +922,23 @@
         const data = await api("/api/playlist");
         App.entries = data.entries || [];
         const spk = $("speakerFilter");
-        spk.innerHTML = '<option value="all">Alle Sprecher</option>';
+        const curSpk = spk.value;
+        spk.innerHTML = `<option value="all">${esc(t("all_speakers"))}</option>`;
         [...new Set(App.entries.map((e) => e.npc_name))].filter(Boolean).sort().forEach((s) => {
           spk.appendChild(new Option(s, s));
         });
+        if (curSpk && App.entries.some((e) => e.npc_name === curSpk)) spk.value = curSpk;
         const race = $("raceFilter");
-        race.innerHTML = '<option value="all">Alle Rassen / FX</option>';
+        const curRace = race.value;
+        race.innerHTML = `<option value="all">${esc(t("all_races"))}</option>`;
         [...new Set(App.entries.map((e) => e.race))].filter(Boolean).sort().forEach((r) => {
           race.appendChild(new Option(r, r));
         });
+        if (curRace && App.entries.some((e) => e.race === curRace)) race.value = curRace;
         renderStats();
         renderStatusChips();
         renderGrid();
-      } catch (err) {
-        /* Playlist not ready yet — shown by empty state */
-      }
+      } catch (err) { /* Playlist not ready yet — shown by empty state */ }
     }
 
     async function loadAudit() {
@@ -766,7 +969,7 @@
         b.className = "ethics-banner";
         b.id = "mismatchBanner";
         b.style.borderColor = "rgba(255,97,97,0.55)";
-        b.innerHTML = '<div><b>Server-Version veraltet:</b> Der laufende Server kennt die neuen Endpoints (/api/state, /api/settings) noch nicht. Im Projektordner ausführen (ohne sudo): <code>./restart_server.sh</code> — beendet alle Prozesse auf Port 8765 und startet die aktuelle Version. Alternativ <code>./launch_desktop.sh</code>.</div>';
+        b.innerHTML = `<div><b>${esc(t("error"))}:</b> ${t("mismatch")}</div>`;
         const live = $("livePanel");
         live.parentNode.insertBefore(b, live);
       }
@@ -775,7 +978,6 @@
     /* ---------- live state polling ---------- */
     async function pollLive() {
       if (App.serverMismatchShown) {
-        // Server is outdated — poll /api/version instead until it is restarted
         if (Date.now() - (App.lastVerCheck || 0) > 20000) {
           App.lastVerCheck = Date.now();
           checkServerVersion();
@@ -791,13 +993,33 @@
         renderLive();
         renderStats();
         if (prevRunning !== App.live.running) {
-          // job state toggled → refresh data
           loadPlaylist();
           loadAudit();
         }
       } catch (e) {
         App.lastVerCheck = Date.now();
         checkServerVersion();
+      }
+    }
+
+    /* ---------- live listening ---------- */
+    function playUrl(url) {
+      if (App.liveAudio) { App.liveAudio.pause(); App.liveAudio = null; }
+      const a = new Audio(url);
+      App.liveAudio = a;
+      a.play().catch(() => {});
+    }
+
+    function listenLive(kind) {
+      const cur = App.live.state && App.live.state.current;
+      if (!cur || !cur.entry_id) return;
+      const entry = App.entries.find((e) => e.entry_id === cur.entry_id) || {};
+      if (kind === "en" && entry.source_ogg_filename) {
+        playUrl(`/audio/en/${encodeURIComponent(entry.source_ogg_filename)}`);
+      } else if (kind === "raw") {
+        playUrl(`/audio/raw/${encodeURIComponent(cur.entry_id)}_raw.wav`);
+      } else if (kind === "de" && entry.target_ogg_filename) {
+        playUrl(`/audio/de/${encodeURIComponent(entry.target_ogg_filename)}`);
       }
     }
 
@@ -809,31 +1031,30 @@
 
       if (App.live.running) {
         badge.className = "status-badge running";
-        badgeText.textContent = `Läuft · ${(App.live.job && App.live.job.mode) || "Job"}`;
+        badgeText.textContent = `${t("running")} · ${(App.live.job && App.live.job.mode) || "Job"}`;
       } else if (st.finished_at && st.step) {
         badge.className = st.ok === false ? "status-badge error" : "status-badge done";
-        badgeText.textContent = st.ok === false ? "Fehler" : "Fertig";
+        badgeText.textContent = st.ok === false ? t("error") : t("done");
         if (App.jobWasRunning) {
-          toast(st.ok === false ? "Job mit Fehlern beendet." : "Job abgeschlossen ✓", st.ok === false ? "err" : "ok");
+          toast(st.ok === false ? t("job_failed") : t("job_done"), st.ok === false ? "err" : "ok");
         }
       } else {
         badge.className = "status-badge";
-        badgeText.textContent = "Idle";
+        badgeText.textContent = t("idle");
       }
       App.jobWasRunning = App.live.running;
 
       // step chips
       const totalSteps = st.total_steps || 7;
-      const activeIdx = st.step ? st.step.index : 0;
       const stepLabels = {
-        1: "Analyse", 2: "Voice-Seeds", 3: "Script", 4: "Synthese", 5: "Validierung", 6: "Mastering", 7: "Audit",
+        1: t("step1"), 2: t("step2"), 3: t("step3"), 4: t("step4"), 5: t("step5"), 6: t("step6"), 7: t("step7"),
       };
       let chips = "";
       for (let i = 1; i <= totalSteps; i++) {
         let cls = "";
         if (st.step && st.step.index === i && !st.step.done) cls = "active";
         else if ((st.step && st.step.index > i) || (st.step && st.step.index === i && st.step.done)) cls = "done";
-        chips += `<div class="step-chip ${cls}"><span class="n">${i}</span>${stepLabels[i] || i}</div>`;
+        chips += `<div class="step-chip ${cls}"><span class="n">${i}</span>${esc(stepLabels[i] || i)}</div>`;
       }
       $("stepChips").innerHTML = chips;
 
@@ -841,8 +1062,6 @@
       const counts = st.counts || {};
       let total = counts.total || 0;
       let processed = counts.processed || 0;
-      // Fallback: older pipeline processes report stale counters — prefer the
-      // number of entries that already carry a QA result (flushed every 10).
       const qaCount = App.entries.filter((e) => e.qa_result).length;
       if (st.step && st.step.key === "qa" && qaCount > processed) {
         processed = qaCount;
@@ -853,8 +1072,8 @@
       $("liveCounts").textContent = `${processed} / ${total || App.entries.length || 0}`;
       $("liveEta").textContent = qaCount > (counts.processed || 0) && st.step && st.step.key === "qa" ? "—" : fmtEta(st.eta_seconds);
       $("liveStepLabel").textContent = st.step
-        ? `Schritt ${st.step.index}/${totalSteps} · ${st.step.label}${st.step.done ? " ✓" : ""}`
-        : "Bereit";
+        ? `${t("step_of")} ${st.step.index}/${totalSteps} · ${esc(st.step.label || stepLabels[st.step.index] || "")}${st.step.done ? " ✓" : ""}`
+        : t("ready");
 
       // current entry spotlight
       const cur = st.current;
@@ -863,40 +1082,43 @@
         curCard.style.display = "";
         $("curId").textContent = cur.entry_id;
         $("curTitle").textContent = cur.quest_title_de || cur.entry_id;
-        $("curNpc").textContent = `NPC: ${cur.npc_name || "—"}${cur.phase ? ` · ${cur.phase}` : ""}`;
+        $("curNpc").textContent = `${t("npc")}: ${cur.npc_name || "—"}${cur.phase ? ` · ${cur.phase}` : ""}`;
         let chipCls = "validating";
-        let chipLabel = "Prüfung…";
-        if (cur.status === "passed") { chipCls = "pass"; chipLabel = "✓ Bestanden"; }
-        else if (cur.status === "failed") { chipCls = "fail"; chipLabel = "✕ Fehlgeschlagen"; }
-        else if (cur.status === "ai_repair") { chipCls = "ai"; chipLabel = `✨ KI-Repair (${cur.ai_provider || "AI"})`; }
-        else if (String(cur.status).startsWith("attempt_")) { chipCls = "retry"; chipLabel = `↻ Versuch ${cur.attempt || ""}`; }
-        else if (cur.status === "synthesizing") { chipLabel = "Synthese…"; }
-        else if (cur.status === "synth_cached") { chipLabel = "Gecacht"; }
-        else if (cur.status === "mastering") { chipLabel = "Mastering…"; }
-        else if (cur.status === "auditing") { chipLabel = "Audit…"; }
-        else if (cur.status === "scripting") { chipLabel = "Script…"; }
-        else if (cur.status === "extracting_seed") { chipLabel = "Seed…"; }
-        else if (cur.status === "scraping") { chipLabel = "Scraping…"; }
-        $("curStatusChip").innerHTML = `<span class="chip-status ${chipCls}">${chipLabel}</span>`;
-        $("curCer").textContent = cur.cer != null ? `CER ${cur.cer.toFixed(1)}%` : "";
+        let chipLabel = t("validating");
+        if (cur.status === "passed") { chipCls = "pass"; chipLabel = t("passed"); }
+        else if (cur.status === "failed") { chipCls = "fail"; chipLabel = t("failed"); }
+        else if (cur.status === "ai_repair") { chipCls = "ai"; chipLabel = `✨ ${t("ai_repair")} (${cur.ai_provider || "AI"})`; }
+        else if (String(cur.status).startsWith("attempt_")) { chipCls = "retry"; chipLabel = `${t("attempt")} ${cur.attempt || ""}`; }
+        else if (cur.status === "synthesizing") { chipLabel = t("synthesizing"); }
+        else if (cur.status === "synth_cached") { chipLabel = t("cached"); }
+        else if (cur.status === "mastering") { chipLabel = t("mastering"); }
+        else if (cur.status === "auditing") { chipLabel = t("auditing"); }
+        else if (cur.status === "scripting") { chipLabel = t("scripting"); }
+        else if (cur.status === "extracting_seed") { chipLabel = t("seed"); }
+        else if (cur.status === "scraping") { chipLabel = t("scraping"); }
+        $("curStatusChip").innerHTML = `<span class="chip-status ${chipCls}">${esc(chipLabel)}</span>`;
+        $("curCer").textContent = cur.cer != null ? `${t("cer")} ${cur.cer.toFixed(1)}%` : "";
+        $("curListenRow").innerHTML = `
+          <span class="listen-row-label key-hint" style="align-self:center;margin-right:0.2rem;">${esc(t("listen"))}:</span>
+          <button class="btn-mini blue" onclick="listenLive('en')">${esc(t("listen_en"))}</button>
+          <button class="btn-mini purple" onclick="listenLive('raw')">${esc(t("listen_raw"))}</button>
+          <button class="btn-mini gold" onclick="listenLive('de')">${esc(t("listen_de"))}</button>`;
         $("liveIdleNote").style.display = "none";
       } else {
         curCard.style.display = "none";
         $("liveIdleNote").style.display = App.live.running ? "none" : "";
-        $("liveIdleNote").textContent = App.live.running
-          ? "Schritt wird vorbereitet …"
-          : "Kein Pipeline-Job aktiv. Starte eine Aktion im Launchpad, um Live-Fortschritt zu sehen.";
+        $("liveIdleNote").textContent = App.live.running ? t("prepping") : t("no_job");
       }
 
       // kv grid
       const kv = [];
-      if (counts.total != null) kv.push(["Verarbeitet", processed, "gold"]);
-      if (counts.passed != null) kv.push(["Bestanden", counts.passed || 0, "green"]);
-      if (counts.failed != null) kv.push(["Probleme", counts.failed || 0, "red"]);
-      if (counts.retried != null) kv.push(["Retries", counts.retried || 0, "gold"]);
-      if (counts.ai_repaired != null) kv.push(["KI-repariert", counts.ai_repaired || 0, "purple"]);
+      if (counts.total != null) kv.push([t("kv_processed"), processed, "gold"]);
+      if (counts.passed != null) kv.push([t("kv_passed"), counts.passed || 0, "green"]);
+      if (counts.failed != null) kv.push([t("kv_failed"), counts.failed || 0, "red"]);
+      if (counts.retried != null) kv.push([t("kv_retried"), counts.retried || 0, "gold"]);
+      if (counts.ai_repaired != null) kv.push([t("kv_repaired"), counts.ai_repaired || 0, "purple"]);
       $("liveKvGrid").innerHTML = kv.map(([l, v, c]) =>
-        `<div class="kv"><div class="l">${l}</div><div class="v ${c}">${v}</div></div>`).join("");
+        `<div class="kv"><div class="l">${esc(l)}</div><div class="v ${c}">${v}</div></div>`).join("");
 
       // AI status
       const ai = st.ai || {};
@@ -904,12 +1126,14 @@
       const provider = ai.provider || safeAi.provider || "none";
       const model = ai.model || safeAi.model || "";
       const aiEnabled = ai.enabled != null ? ai.enabled : safeAi.enabled;
-      const providerName = (safeAi.providers && safeAi.providers[provider] && safeAi.providers[provider].label) || provider;
-      $("aiProviderName").textContent = (provider && provider !== "none" && aiEnabled) ? providerName : "Inaktiv";
-      $("aiProviderMeta").textContent = (provider && provider !== "none" && aiEnabled) ? (model || "") : "(keine externe KI konfiguriert)";
+      const providerName = (provider && provider !== "none" && aiEnabled)
+        ? ((PROVIDER_LABELS[provider] && PROVIDER_LABELS[provider][LANG]) || (safeAi.providers && safeAi.providers[provider] && safeAi.providers[provider].label) || provider)
+        : t("ai_inactive");
+      $("aiProviderName").textContent = providerName;
+      $("aiProviderMeta").textContent = (provider && provider !== "none" && aiEnabled) ? (model || "") : t("ai_none_configured");
       $("aiProviderOk").innerHTML = (provider && provider !== "none" && aiEnabled)
-        ? '<span class="chip-status ai">✦ bereit</span>'
-        : '<span class="chip-status validating">◌ aus</span>';
+        ? `<span class="chip-status ai">${esc(t("ai_ready"))}</span>`
+        : `<span class="chip-status validating">${esc(t("ai_off"))}</span>`;
 
       const calls = (ai.calls || []).slice(-6).reverse();
       $("aiFeed").innerHTML = calls.length ? calls.map((c) => `
@@ -920,24 +1144,24 @@
           ${c.tokens && c.tokens.total ? `<span class="entry">${fmtNum(c.tokens.total)} Tok</span>` : ""}
           ${c.cost_usd ? `<span class="entry">$${c.cost_usd.toFixed(4)}</span>` : ""}
           <span style="margin-left:auto" class="${c.ok ? "ok" : "fail"}">${c.ok ? "✓" : "✕"}</span>
-        </div>`).join("") : '<div class="empty-note">Noch keine KI-Aufrufe in diesem Lauf.</div>';
+        </div>`).join("") : `<div class="empty-note">${esc(t("ai_no_calls"))}</div>`;
 
       // Lifetime token & cost usage
       const usage = (App.live.job && App.live.job.usage) || {};
       const uTokens = usage.total_tokens || 0;
       const uCost = usage.cost_usd || 0;
       $("aiUsageGrid").innerHTML = `
-        <div class="kv"><div class="l">Tokens gesamt</div><div class="v purple">${fmtNum(uTokens)}</div></div>
-        <div class="kv"><div class="l">Prompt</div><div class="v">${fmtNum(usage.prompt_tokens || 0)}</div></div>
-        <div class="kv"><div class="l">Antwort</div><div class="v">${fmtNum(usage.completion_tokens || 0)}</div></div>
-        <div class="kv"><div class="l">Kosten (USD)</div><div class="v ${uCost > 0 ? "gold" : ""}">$${Number(uCost).toFixed(4)}</div></div>
+        <div class="kv"><div class="l">${esc(t("kv_tokens"))}</div><div class="v purple">${fmtNum(uTokens)}</div></div>
+        <div class="kv"><div class="l">${esc(t("kv_prompt"))}</div><div class="v">${fmtNum(usage.prompt_tokens || 0)}</div></div>
+        <div class="kv"><div class="l">${esc(t("kv_completion"))}</div><div class="v">${fmtNum(usage.completion_tokens || 0)}</div></div>
+        <div class="kv"><div class="l">${esc(t("kv_cost"))}</div><div class="v ${uCost > 0 ? "gold" : ""}">$${Number(uCost).toFixed(4)}</div></div>
       `;
 
       // activity feed (aside)
       const feed = [];
-      if (st.step) feed.push({ t: st.step.done ? "✓" : "▶", txt: `${st.step.label} ${st.step.done ? "abgeschlossen" : "läuft"}` });
+      if (st.step) feed.push({ t: st.step.done ? "✓" : "▶", txt: `${esc(st.step.label || "")} ${st.step.done ? t("activity_done") : t("activity_running")}` });
       if (cur && cur.entry_id) feed.push({ t: "◉", txt: `${cur.entry_id} · ${cur.status || ""}` });
-      calls.slice(-3).forEach((c) => feed.push({ t: "✦", txt: `KI: ${c.entry_id} (${c.ok ? "ok" : "fehler"})` }));
+      calls.slice(-3).forEach((c) => feed.push({ t: "✦", txt: `${t("activity_ai")}: ${c.entry_id} (${c.ok ? t("ai_ok") : t("ai_error")})` }));
       $("activityFeed").innerHTML = feed.length
         ? feed.map((f) => `<div class="ai-line"><span class="t">${esc(f.t)}</span><span style="color:var(--text-2)">${esc(f.txt)}</span></div>`).join("")
         : '<div class="empty-note">—</div>';
@@ -959,8 +1183,6 @@
       const liveSt = App.live.state || {};
       const liveC = liveSt.counts || {};
       const withQa = es.filter((e) => e.qa_result);
-      // Live counts are only trusted when they match the flushed QA results —
-      // older pipeline processes report stale/partial counters.
       let liveQaActive = App.live.running && liveSt.step && liveSt.step.key === "qa" && liveC.total > 0;
       if (liveQaActive && withQa.length > (liveC.processed || 0)) liveQaActive = false;
 
@@ -968,7 +1190,6 @@
       let problems = 0;
       let passed = 0;
       if (liveQaActive) {
-        // During validation the live state is the freshest source of truth
         total = liveC.total;
         problems = liveC.failed || 0;
         passed = liveC.passed || 0;
@@ -989,15 +1210,15 @@
       // Aside overview card
       const okPct = withQa.length ? ((passed / withQa.length) * 100) : 0;
       $("overviewRows").innerHTML = `
-        <div class="ov-row"><span class="l">Gesamt-Quests</span><span class="v">${totalAll || "—"}</span></div>
-        <div class="ov-row"><span class="l">Validierte Quests</span><span class="v">${liveQaActive ? `${(liveC.processed || 0)} / ${total}` : withQa.length}</span></div>
-        <div class="ov-row"><span class="l">QA bestanden</span><span class="v" style="color:var(--green)">${passed}</span></div>
-        <div class="ov-row"><span class="l">Mit Problemen</span><span class="v" style="color:${problems ? "var(--red)" : "var(--green)"}">${problems}${total ? ` (${pct}%)` : ""}</span></div>
+        <div class="ov-row"><span class="l">${esc(t("ov_total"))}</span><span class="v">${totalAll || "—"}</span></div>
+        <div class="ov-row"><span class="l">${esc(t("ov_validated"))}</span><span class="v">${liveQaActive ? `${(liveC.processed || 0)} / ${total}` : withQa.length}</span></div>
+        <div class="ov-row"><span class="l">${esc(t("ov_passed"))}</span><span class="v" style="color:var(--green)">${passed}</span></div>
+        <div class="ov-row"><span class="l">${esc(t("ov_problems"))}</span><span class="v" style="color:${problems ? "var(--red)" : "var(--green)"}">${problems}${total ? ` (${pct}%)` : ""}</span></div>
         <div class="mini-bar"><i style="width:${total ? (problems / total) * 100 : 0}%;background:var(--red);"></i></div>
-        <div class="ov-row"><span class="l">KI-repariert</span><span class="v" style="color:var(--purple)">${liveQaActive ? (liveC.ai_repaired || 0) : withQa.filter((e) => e.qa_result.ai_used).length}</span></div>
-        <div class="ov-row"><span class="l">Retries</span><span class="v">${liveQaActive ? (liveC.retried || 0) : withQa.filter((e) => e.qa_result.attempts > 1).length}</span></div>
+        <div class="ov-row"><span class="l">${esc(t("ov_repaired"))}</span><span class="v" style="color:var(--purple)">${liveQaActive ? (liveC.ai_repaired || 0) : withQa.filter((e) => e.qa_result.ai_used).length}</span></div>
+        <div class="ov-row"><span class="l">${esc(t("ov_retries"))}</span><span class="v">${liveQaActive ? (liveC.retried || 0) : withQa.filter((e) => e.qa_result.attempts > 1).length}</span></div>
         <div class="mini-bar"><i style="width:${Math.min(100, okPct)}%;background:var(--green);"></i></div>
-        <div class="ov-row"><span class="l">Erfolgsquote (QA)</span><span class="v">${withQa.length || liveQaActive ? okPct.toFixed(1) + "%" : "—"}</span></div>
+        <div class="ov-row"><span class="l">${esc(t("ov_success"))}</span><span class="v">${withQa.length || liveQaActive ? okPct.toFixed(1) + "%" : "—"}</span></div>
       `;
     }
 
@@ -1010,13 +1231,13 @@
         else counts.open++;
       });
       const defs = [
-        ["all", "Alle"],
-        ["fail", "Probleme"],
-        ["pass", "OK"],
-        ["open", "Offen / ungeprüft"],
+        ["all", t("chip_all")],
+        ["fail", t("chip_fail")],
+        ["pass", t("chip_pass")],
+        ["open", t("chip_open")],
       ];
       $("statusChips").innerHTML = defs.map(([k, l]) =>
-        `<button class="chip-filter ${App.filters.status === k ? "on" : ""}" data-status="${k}">${l} <span class="cnt">${counts[k]}</span></button>`
+        `<button class="chip-filter ${App.filters.status === k ? "on" : ""}" data-status="${k}">${esc(l)} <span class="cnt">${counts[k]}</span></button>`
       ).join("");
       document.querySelectorAll(".chip-filter").forEach((b) => {
         b.onclick = () => { App.filters.status = b.dataset.status; renderStatusChips(); renderGrid(); };
@@ -1061,28 +1282,31 @@
         const match = Math.max(0, Math.min(100, 100 - qa.cer * 100));
         const ok = qa.passed !== false && qa.cer <= 0.15;
         const barColor = ok ? "var(--green)" : "var(--red)";
+        const attemptsTxt = (qa.attempts || 1) === 1 ? t("attempts_1") : t("attempts_n");
         const aiNote = qa.ai_used
-          ? `<span class="badge race" style="background:var(--purple-soft);color:#cf9bff;border-color:var(--purple-border);">✦ KI-repariert (${esc(qa.ai_provider || "AI")})</span>`
+          ? `<span class="badge race" style="background:var(--purple-soft);color:#cf9bff;border-color:var(--purple-border);">${esc(t("ai_repaired_badge"))} (${esc(qa.ai_provider || "AI")})</span>`
           : "";
         qaLine = `
           <div class="qa-line">
-            <span class="qa-txt ${ok ? "ok" : "bad"}">${ok ? "✓" : "✕"} QA ${match.toFixed(1)}% Match · ${qa.attempts || 1} ${qa.attempts === 1 ? "Versuch" : "Versuche"}</span>
+            <span class="qa-txt ${ok ? "ok" : "bad"}">${ok ? "✓" : "✕"} ${esc(t("qa_match"))} ${match.toFixed(1)}% · ${qa.attempts || 1} ${esc(attemptsTxt)}</span>
             ${aiNote}
             <div class="matchbar"><i style="width:${match}%;background:${barColor};"></i></div>
           </div>`;
       } else {
-        qaLine = `<div class="qa-line"><span class="qa-txt">${isLive ? "wird gerade verarbeitet …" : (st === "unverified" ? "Audio vorhanden — QA steht aus" : "noch nicht generiert")}</span></div>`;
+        qaLine = `<div class="qa-line"><span class="qa-txt">${esc(isLive ? t("processing_now") : (st === "unverified" ? t("audio_no_qa") : t("not_generated")))}</span></div>`;
       }
 
       const auditHit = App.audit && (App.audit.results || []).find((r) => r.entry_id === e.entry_id);
       const auditChip = auditHit
-        ? `<span class="badge ${auditHit.passed ? "race" : ""}" style="${auditHit.passed ? "" : "background:var(--red-soft);color:var(--red);border:1px solid rgba(255,97,97,0.3);"}">Audit ${auditHit.passed ? "✓" : "✕"} ${fmtPct(auditHit.post_fx_cer)} CER</span>`
+        ? `<span class="badge ${auditHit.passed ? "race" : ""}" style="${auditHit.passed ? "" : "background:var(--red-soft);color:var(--red);border:1px solid rgba(255,97,97,0.3);"}">${esc(t(auditHit.passed ? "audit_pass" : "audit_fail"))} ${fmtPct(auditHit.post_fx_cer)} CER</span>`
         : "";
 
       const phonetics = (e.phonetic_replacements && e.phonetic_replacements.length)
         ? e.phonetic_replacements.join(" · ")
-        : "Standard-Phonetik";
+        : t("standard_phonetics");
       const seedFile = e.reference_voice_wav ? e.reference_voice_wav.split("/").pop() : "";
+      const rawFile = e.raw_tts_wav ? e.raw_tts_wav.split("/").pop() : "";
+      const hasMastered = e.final_ogg_duration_sec != null || e.final_ogg_path;
 
       return `
       <article class="quest-card ${meta.cls}" id="card-${esc(e.entry_id)}">
@@ -1090,14 +1314,14 @@
           <div>
             <div class="card-idline">
               <span class="badge file">${esc(e.target_ogg_filename)}</span>
-              ${isLive ? '<span class="badge live">● in Arbeit</span>' : ""}
-              <span class="badge race">FX · ${esc(e.race || "Default")}</span>
+              ${isLive ? `<span class="badge live">${esc(t("in_progress"))}</span>` : ""}
+              <span class="badge race">${esc(t("fx"))} · ${esc(e.race || "Default")}</span>
               <span class="badge zone">${esc(e.zone || "")}${e.subzone ? " — " + esc(e.subzone) : ""}</span>
               ${auditChip}
             </div>
             <div class="card-title"><span class="npc">${esc(e.npc_name || "NPC")}</span> — ${esc(e.quest_title_de || "Quest " + e.quest_id)} <span class="phase">· ${esc(e.phase || "")}</span></div>
           </div>
-          <div>${meta.chip}</div>
+          <div>${meta.chip()}</div>
         </div>
 
         ${qaLine}
@@ -1106,27 +1330,33 @@
           <div class="text-box">
             <div class="de-text">„${esc(e.clean_de_text || "—")}“</div>
             <div class="sub-meta">
-              <div><b>Script:</b> ${esc(e.tts_script_text || e.clean_de_text || "—")}</div>
-              <div><b>Phonetik:</b> ${esc(phonetics)}${e.prosody && e.prosody.acting_note ? " · <b>Regie:</b> " + esc(e.prosody.acting_note) : ""}</div>
-              ${qa ? `<div><b>Whisper:</b> „${esc(qa.transcript || "—")}“</div>` : ""}
+              <div><b>${esc(t("script"))}:</b> ${esc(e.tts_script_text || e.clean_de_text || "—")}</div>
+              <div><b>${esc(t("phonetics"))}:</b> ${esc(phonetics)}${e.prosody && e.prosody.acting_note ? " · <b>" + esc(t("direction")) + ":</b> " + esc(e.prosody.acting_note) : ""}</div>
+              ${qa ? `<div><b>${esc(t("whisper"))}:</b> „${esc(qa.transcript || "—")}“</div>` : ""}
             </div>
           </div>
           <div class="players">
             <div class="player-row de">
-              <div class="lang-tag"><span class="main">DE Lokalisiert</span><span class="sub">${e.final_ogg_duration_sec || e.raw_tts_duration_sec || "?"}s · OGG −16 LUFS</span></div>
-              ${(e.final_ogg_duration_sec != null || e.final_ogg_path)
+              <div class="lang-tag"><span class="main">${esc(t("de_mastered"))}</span><span class="sub">${e.final_ogg_duration_sec || e.raw_tts_duration_sec || "?"}s · OGG −16 LUFS</span></div>
+              ${hasMastered
                 ? `<audio class="de-audio" controls preload="none" src="/audio/de/${esc(encodeURIComponent(e.target_ogg_filename))}"></audio>`
-                : `<span class="key-hint" style="margin:auto 0;">Noch nicht gerendert (Schritt 6)</span>`}
+                : `<span class="key-hint" style="margin:auto 0;">${esc(t("not_rendered"))}</span>`}
+            </div>
+            <div class="player-row raw">
+              <div class="lang-tag"><span class="main">${esc(t("raw_unmastered"))}</span><span class="sub">${e.raw_tts_duration_sec || "?"}s · ${esc(t("unmastered_sub"))}</span></div>
+              ${rawFile
+                ? `<audio controls preload="none" src="/audio/raw/${esc(encodeURIComponent(rawFile))}"></audio>`
+                : `<span class="key-hint" style="margin:auto 0;">${esc(t("not_generated"))}</span>`}
             </div>
             <div class="player-row">
-              <div class="lang-tag"><span class="main">EN Original</span><span class="sub">${e.source_duration_sec || "?"}s · Referenz</span></div>
+              <div class="lang-tag"><span class="main">${esc(t("en_original"))}</span><span class="sub">${e.source_duration_sec || "?"}s · ${esc(t("reference"))}</span></div>
               <audio controls preload="none" src="/audio/en/${esc(encodeURIComponent(e.source_ogg_filename))}"></audio>
             </div>
             <div class="card-actions">
-              <button class="btn-mini gold" onclick="playAB('${esc(e.entry_id)}')">A/B vergleichen</button>
-              <button class="btn-mini blue" onclick="playOnly('${esc(e.entry_id)}')">▶ DE</button>
-              <button class="btn-mini red" ${App.live.running ? "disabled" : ""} onclick="regenerateEntry('${esc(e.entry_id)}')">↻ Neu generieren</button>
-              ${seedFile ? `<a class="btn-mini" href="/audio/seed/${esc(encodeURIComponent(seedFile))}" target="_blank">Voice-Seed</a>` : ""}
+              <button class="btn-mini gold" onclick="playAB('${esc(e.entry_id)}')">${esc(t("ab_compare"))}</button>
+              <button class="btn-mini blue" onclick="playOnly('${esc(e.entry_id)}')">${esc(t("play_de"))}</button>
+              <button class="btn-mini red" ${App.live.running ? "disabled" : ""} onclick="regenerateEntry('${esc(e.entry_id)}')">${esc(t("regen"))}</button>
+              ${seedFile ? `<a class="btn-mini" href="/audio/seed/${esc(encodeURIComponent(seedFile))}" target="_blank">${esc(t("voice_seed"))}</a>` : ""}
             </div>
           </div>
         </div>
@@ -1138,13 +1368,13 @@
       const slice = list.slice(0, App.visible);
       const container = $("playlistContainer");
       if (!list.length) {
-        container.innerHTML = '<div class="empty-state"><div class="big">Keine Einträge gefunden</div>Filter oder Suche anpassen.</div>';
+        container.innerHTML = `<div class="empty-state"><div class="big">${esc(t("no_results"))}</div>${esc(t("no_results_hint"))}</div>`;
         $("loadMoreBtn").style.display = "none";
         return;
       }
       container.innerHTML = slice.map(cardHtml).join("");
       $("loadMoreBtn").style.display = list.length > App.visible ? "" : "none";
-      $("loadMoreBtn").textContent = `Mehr laden (${Math.min(60, list.length - App.visible)} weitere von ${list.length})`;
+      $("loadMoreBtn").textContent = `${t("load_more")} (${Math.min(60, list.length - App.visible)} ${t("load_more_more")} ${list.length})`;
     }
 
     function loadMore() { App.visible += 60; renderGrid(); }
@@ -1181,25 +1411,25 @@
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ expansion, mode }),
         });
-        toast(`Job gestartet: ${mode}`, "gold");
+        toast(`${t("job_started")}: ${mode}`, "gold");
         showConsole();
       } catch (err) {
-        toast(`Start fehlgeschlagen: ${err.message}`, "err");
+        toast(`${t("job_start_error")}: ${err.message}`, "err");
       }
       setTimeout(pollLive, 400);
     }
 
     async function regenerateEntry(id) {
-      if (App.live.running) { toast("Ein Job läuft bereits — bitte warten.", "err"); return; }
+      if (App.live.running) { toast(t("job_running_busy"), "err"); return; }
       try {
         await api("/api/regenerate_entry", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ entry_id: id }),
         });
-        toast(`${id}: Regenerierung gestartet (TTS → QA → FX)`, "gold");
+        toast(`${id}: ${t("regen_started")}`, "gold");
       } catch (err) {
-        toast(`Regenerierung fehlgeschlagen: ${err.message}`, "err");
+        toast(`${t("regen_error")}: ${err.message}`, "err");
       }
     }
 
@@ -1207,28 +1437,28 @@
       const con = $("jobConsole");
       const show = con.style.display === "none" || !con.style.display;
       con.style.display = show ? "block" : "none";
-      $("consoleToggleBtn").textContent = show ? "Konsole ausblenden" : "Konsole";
+      $("consoleToggleBtn").textContent = show ? t("console_hide") : t("console");
       if (show) con.scrollTop = con.scrollHeight;
     }
-    function showConsole() { $("jobConsole").style.display = "block"; $("consoleToggleBtn").textContent = "Konsole ausblenden"; }
+    function showConsole() { $("jobConsole").style.display = "block"; $("consoleToggleBtn").textContent = t("console_hide"); }
 
     /* ---------- audit card ---------- */
     function renderAudit() {
       const a = App.audit;
       const body = $("auditBody");
       if (!a || !a.audited_count) {
-        body.innerHTML = '<div class="empty-note">Noch kein Audit-Report vorhanden.</div>';
+        body.innerHTML = `<div class="empty-note">${esc(t("no_audit"))}</div>`;
         return;
       }
       const rate = a.pass_rate_percent ?? 0;
       const color = rate >= 95 ? "var(--green)" : rate >= 80 ? "var(--gold)" : "var(--red)";
       body.innerHTML = `
         <div class="ov-rows">
-          <div class="ov-row"><span class="l">Geprüft</span><span class="v">${a.audited_count}</span></div>
-          <div class="ov-row"><span class="l">Bestanden</span><span class="v" style="color:${color}">${a.passed_count} (${rate.toFixed(1)}%)</span></div>
+          <div class="ov-row"><span class="l">${esc(t("aud_checked"))}</span><span class="v">${a.audited_count}</span></div>
+          <div class="ov-row"><span class="l">${esc(t("aud_passed"))}</span><span class="v" style="color:${color}">${a.passed_count} (${rate.toFixed(1)}%)</span></div>
           <div class="mini-bar"><i style="width:${rate}%;background:${color};"></i></div>
-          <div class="ov-row"><span class="l">Ø Post-FX CER</span><span class="v">${a.average_post_fx_cer_percent ?? "—"}%</span></div>
-          <div class="ov-row"><span class="l">Release-ready</span><span class="v" style="color:${a.release_ready_100_quests ? "var(--green)" : "var(--text-2)"}">${a.release_ready_100_quests ? "✓ Ja" : "— noch nicht"}</span></div>
+          <div class="ov-row"><span class="l">${esc(t("aud_avgcer"))}</span><span class="v">${a.average_post_fx_cer_percent ?? "—"}%</span></div>
+          <div class="ov-row"><span class="l">${esc(t("aud_ready"))}</span><span class="v" style="color:${a.release_ready_100_quests ? "var(--green)" : "var(--text-2)"}">${a.release_ready_100_quests ? esc(t("aud_yes")) : esc(t("aud_no"))}</span></div>
         </div>`;
     }
 
@@ -1258,7 +1488,7 @@
           : m.id;
         sel.appendChild(new Option(label, m.id));
       });
-      sel.appendChild(new Option("Eigene Modell-ID …", CUSTOM_MODEL));
+      sel.appendChild(new Option(t("ai_model_custom").replace(" …", " …"), CUSTOM_MODEL));
       const known = models.some((m) => m.id === selectedId);
       if (known && selectedId) {
         sel.value = selectedId;
@@ -1281,15 +1511,13 @@
       if (!s) return;
       $("aiEnabled").checked = !!s.enabled;
       const sel = $("aiProvider");
-      // Rebuild from the API when available; static fallback options stay otherwise
       if (s.providers && Object.keys(s.providers).length) {
         sel.innerHTML = "";
         Object.entries(s.providers).forEach(([k, v]) => {
-          sel.appendChild(new Option(v.label, k));
+          sel.appendChild(new Option((PROVIDER_LABELS[k] && PROVIDER_LABELS[k][LANG]) || v.label, k));
         });
       }
       sel.value = s.provider || "none";
-      // Model dropdown: saved model + provider default + custom entry
       const defaults = MODEL_DEFAULTS[s.provider] || { default_model: "" };
       const modelList = [];
       if (s.model) modelList.push({ id: s.model, pricing: null });
@@ -1300,10 +1528,9 @@
       $("aiBaseUrl").value = s.base_url || "";
       $("aiTrigger").value = s.trigger_after_failures || 3;
       $("aiKey").value = "";
-      $("aiKey").placeholder = s.api_key_set ? "•••••••• gespeichert — leer lassen zum Beibehalten" : "••••••••";
-      $("aiKeyHint").innerHTML = s.api_key_set
-        ? '<b>Key gespeichert:</b> liegt lokal in der git-ignorierten <code>.env</code> — nie auf GitHub.'
-        : '<b>Kein Key gesetzt.</b> Keys werden ausschließlich in die git-ignorierte <code>.env</code> geschrieben.';
+      $("aiKey").placeholder = s.api_key_set ? "••••••••" : "••••••••";
+      $("aiKeyHint").innerHTML = s.api_key_set ? t("key_set") : t("key_unset");
+      $("aiProviderHint").textContent = t("ai_provider_hint");
       $("testResult").className = "test-result";
     }
 
@@ -1325,9 +1552,9 @@
         });
         $("aiKey").value = "";
         fillSettingsForm();
-        toast("KI-Einstellungen gespeichert (Key bleibt lokal in .env)", "ok");
+        toast(t("saved_toast"), "ok");
       } catch (err) {
-        toast(`Speichern fehlgeschlagen: ${err.message}`, "err");
+        toast(`${t("save_error")}: ${err.message}`, "err");
       }
     }
 
@@ -1343,7 +1570,7 @@
       const out = $("testResult");
       out.className = "test-result";
       out.style.display = "block";
-      out.textContent = "Teste Verbindung …";
+      out.textContent = t("testing");
       out.style.background = "";
       out.style.color = "";
       try {
@@ -1356,7 +1583,7 @@
         out.textContent = r.message;
       } catch (err) {
         out.className = "test-result fail";
-        out.textContent = `Fehler: ${err.message}`;
+        out.textContent = `${t("error")}: ${err.message}`;
       }
     }
 
@@ -1377,19 +1604,18 @@
       const s = App.settings;
       const p = $("aiProvider").value;
       const model = currentModel();
-      // Prefer the exact model pricing from the catalog (e.g. OpenRouter)
       let pricing = App.modelPricing[model] || null;
       let source = "";
       if (!pricing) {
         pricing = (s && s.pricing && s.pricing[p]) || null;
-        source = " (Schätzung)";
+        source = ` ${t("pricing_est")}`;
       }
       const hint = $("pricingHint");
       if (!pricing || (!pricing.input && !pricing.output)) {
         hint.textContent = "";
         return;
       }
-      hint.textContent = `Preisbasis${source}: ${Number(pricing.input).toFixed(2)} $ / ${Number(pricing.output).toFixed(2)} $ pro 1M Tokens (Input/Output).`;
+      hint.textContent = `${t("pricing")}${source}: ${Number(pricing.input).toFixed(2)} $ / ${Number(pricing.output).toFixed(2)} $ ${t("pricing_per")}.`;
     }
 
     async function listModels() {
@@ -1402,7 +1628,7 @@
       const btn = $("aiModelsBtn");
       const out = $("testResult");
       btn.disabled = true;
-      btn.textContent = "Lade …";
+      btn.textContent = t("ai_models_loading");
       try {
         const r = await api("/api/settings/models", {
           method: "POST",
@@ -1416,26 +1642,23 @@
           });
           const keep = currentModel() || "";
           setModelSelect(r.models, keep);
-          toast(r.message, "ok");
+          toast(`${r.message}`, "ok");
         } else {
           out.className = "test-result fail";
-          out.textContent = r.message || "Keine Modelle gefunden.";
+          out.textContent = r.message || t("models_error");
         }
       } catch (err) {
         out.className = "test-result fail";
-        out.textContent = `Fehler: ${err.message}`;
+        out.textContent = `${t("error")}: ${err.message}`;
       } finally {
         btn.disabled = false;
-        btn.textContent = "Modelle laden";
+        btn.textContent = t("ai_models_load");
       }
     }
 
     $("aiProvider").addEventListener("change", () => {
-      const s = App.settings;
       const p = $("aiProvider").value;
-      const info = (s && s.providers && s.providers[p]) || MODEL_DEFAULTS[p] || {};
-      // Always reset to the provider default — stale models from another
-      // provider cause 404 "Model Not Exist" errors.
+      const info = MODEL_DEFAULTS[p] || {};
       App.modelPricing = {};
       setModelSelect(
         info.default_model ? [{ id: info.default_model, pricing: null }] : [],
@@ -1451,8 +1674,10 @@
 
     /* ---------- boot ---------- */
     (async function boot() {
+      applyI18n();
       await checkServerVersion();
       await Promise.all([loadSettings(), loadAudit(), loadPlaylist()]);
+      applyI18n();
       await pollLive();
       setInterval(pollLive, 1200);
       setInterval(loadAudit, 15000);

@@ -538,6 +538,12 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
             self._send_file(de_dir / fname, send_body=send_body)
             return
 
+        if path.startswith("/audio/raw/"):
+            fname = os.path.basename(path[len("/audio/raw/") :])
+            raw_dir = self.project_root / self.cfg["paths"]["output_raw_tts"]
+            self._send_file(raw_dir / fname, send_body=send_body)
+            return
+
         if path.startswith("/audio/seed/"):
             fname = os.path.basename(path[len("/audio/seed/") :])
             seed_dir = self.project_root / self.cfg["paths"]["data_reference_voices"]
