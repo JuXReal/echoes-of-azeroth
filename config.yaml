@@ -115,7 +115,7 @@ tts:
   high_voice_speed: 0.98
 
 qa_validation:
-  whisper_model: "small"        # Options: tiny, base, small, medium, large-v3 (small empfohlen für deDE)
+  whisper_model: "large-v3"     # Options: tiny, base, small, medium, large-v3 (large-v3 = beste Qualität für Einmal-Läufe)
   whisper_device: "cuda"
   whisper_compute_type: "float16"
   max_wer_threshold: 0.15       # 15% maximum Word Error Rate / Levenshtein normalized distance
