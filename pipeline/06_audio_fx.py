@@ -24,6 +24,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 from typing import Dict, List
 
@@ -31,6 +32,9 @@ import yaml
 from mutagen.oggvorbis import OggVorbis
 from rich.console import Console
 from rich.table import Table
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from pipeline.live_state import begin_step, finish_step, increment, update_current
 
 console = Console()
 
@@ -185,6 +189,7 @@ def main():
     entries = pilot_data["entries"]
 
     console.rule("[bold cyan]Step 6: FFmpeg Audio Post-Processing (Race-FX + EBU R128 Loudnorm + OGG Vorbis)[/bold cyan]")
+    begin_step("fx", total=len(entries))
 
     table = Table(title="Processed & Mastered German OGG Voiceovers")
     table.add_column("File", style="cyan")
@@ -201,6 +206,15 @@ def main():
         profile = race_profiles.get(race, race_profiles["Default"])
         af_chain = profile["af_chain"]
 
+        update_current({
+            "entry_id": e["entry_id"],
+            "npc_name": e["npc_name"],
+            "quest_title_de": e.get("quest_title_de", ""),
+            "phase": e.get("phase", ""),
+            "status": "mastering",
+            "cer": None,
+        })
+
         final_dur = process_audio_fx_and_export_ogg(
             input_wav=raw_wav,
             output_ogg=out_ogg,
@@ -208,6 +222,7 @@ def main():
             loudnorm_cfg=loudnorm_cfg,
             ogg_cfg=ogg_cfg,
         )
+        increment(processed=1)
 
         e["final_ogg_path"] = str(out_ogg)
         e["final_ogg_duration_sec"] = final_dur
@@ -229,6 +244,7 @@ def main():
 
     console.print(table)
     pilot_path.write_text(json.dumps(pilot_data, indent=2, ensure_ascii=False), encoding="utf-8")
+    finish_step(ok=True)
 
     # Build complete WoW Addon Pack
     addon_name = pilot_data.get("addon_architecture", {}).get("target_pack_name", cfg["project"]["target_addon_name"])

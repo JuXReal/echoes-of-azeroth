@@ -21,6 +21,9 @@ rm -f "output/final_ogg/${ENTRY_ID}.ogg"
 # Run TTS Generator (synthesizes only missing raw WAVs)
 "$PYTHON" pipeline/04_tts_generator.py
 
+# Run the Whisper QA gate for this entry (with retry loop & optional AI repair)
+"$PYTHON" pipeline/05_qa_validator.py --entry-id "$ENTRY_ID"
+
 # Run Audio FX & WoW deployment (processes only missing or updated files)
 "$PYTHON" pipeline/06_audio_fx.py --install-to-wow --skip-audit
 

@@ -28,6 +28,7 @@ import ctypes
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -37,6 +38,9 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from rich.table import Table
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from pipeline.live_state import begin_step, finish_step, increment, update_current
 
 console = Console()
 
@@ -514,6 +518,7 @@ def scrape_missing_pack_quests(
     to_fetch = [qid for qid in needed_qids if str(qid) not in cache]
     if to_fetch:
         console.print(f"[cyan]• Scraping {len(to_fetch)} missing quests from de.wowhead.com ({max_workers} threads)...[/cyan]")
+        begin_step("analyze", total=len(to_fetch))
         with Progress(
             SpinnerColumn(),
             TextColumn("[progress.description]{task.description}"),
@@ -532,6 +537,15 @@ def scrape_missing_pack_quests(
                     except Exception:
                         pass
                     progress.advance(task)
+                    update_current({
+                        "entry_id": f"scrape:{qid}",
+                        "npc_name": "Wowhead",
+                        "quest_title_de": f"Quest #{qid}",
+                        "phase": "Scrape",
+                        "status": "scraping",
+                        "cer": None,
+                    })
+                    increment(processed=1)
                     if idx % 100 == 0:
                         cache_file.write_text(json.dumps(cache, indent=2, ensure_ascii=False), encoding="utf-8")
 
@@ -660,6 +674,7 @@ def main():
     sv_path = Path(os.getenv("WOW_SAVED_VARS") or cfg["paths"]["saved_variables_lua"])
 
     console.rule(f"[bold cyan]Step 1: ChattyLittleNpc Addon Analyzer ({expansion} -> {target_addon_name})[/bold cyan]")
+    begin_step("analyze", total=0, expansion=expansion)
 
     files, durations = parse_voiceovers_list(vo_list_path)
     quest_ogg_count = sum(1 for x in files if re.match(r"^\d+_(Desc|Prog|Comp)\.ogg$", x))
@@ -754,6 +769,7 @@ def main():
     if len(selected_entries) > 30:
         console.print(f"[dim]... and {len(selected_entries) - 30} more entries in {pilot_catalog_path.name}[/dim]")
     console.print(f"[bold green]✓ Saved mapping catalog ({len(selected_entries)} active entries) -> {pilot_catalog_path}[/bold green]")
+    finish_step(ok=True)
 
 
 if __name__ == "__main__":

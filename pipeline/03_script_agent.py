@@ -23,6 +23,7 @@ import argparse
 import json
 import os
 import re
+import sys
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
@@ -32,6 +33,10 @@ from dotenv import load_dotenv
 from num2words import num2words
 from rich.console import Console
 from rich.table import Table
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from pipeline.ai_client import get_settings as get_ai_settings, is_available as ai_is_available
+from pipeline.live_state import begin_step, finish_step, increment, set_ai_config, update_current
 
 console = Console()
 
@@ -309,6 +314,17 @@ def main():
     lexicon = cfg["llm_routing"]["tier2_frontier"].get("phonetic_lexicon", {})
 
     console.rule("[bold cyan]Step 3: Two-Stage Model Routing (Routine Normalizer + Frontier Script Director)[/bold cyan]")
+    begin_step("script", total=len(entries))
+
+    try:
+        ai_settings = get_ai_settings(cfg)
+        set_ai_config(
+            enabled=ai_is_available(ai_settings),
+            provider=ai_settings.get("provider"),
+            model=ai_settings.get("model") if ai_is_available(ai_settings) else None,
+        )
+    except Exception:
+        pass
 
     table = Table(title="Two-Stage Script Preparation & Warcraft Phonetics (Midnight DE)")
     table.add_column("Entry", style="cyan")
@@ -318,6 +334,14 @@ def main():
     table.add_column("Final TTS Script Preview", style="white")
 
     for e in entries:
+        update_current({
+            "entry_id": e["entry_id"],
+            "npc_name": e["npc_name"],
+            "quest_title_de": e.get("quest_title_de", ""),
+            "phase": e.get("phase", ""),
+            "status": "scripting",
+            "cer": None,
+        })
         raw_clean = e["clean_de_text"]
         # Tier 1: Routine normalizer (numbers, abbreviations, dialect apostrophes)
         tier1_text = tier1_routine_normalize(raw_clean)
@@ -339,10 +363,12 @@ def main():
             ", ".join(phonetics) if phonetics else "—",
             preview,
         )
+        increment(processed=1)
 
     console.print(table)
     pilot_path.write_text(json.dumps(pilot_data, indent=2, ensure_ascii=False), encoding="utf-8")
     console.print(f"[bold green]✓ Prepared {len(entries)} dramatic German voiceover scripts -> {pilot_path}[/bold green]")
+    finish_step(ok=True)
 
 
 if __name__ == "__main__":

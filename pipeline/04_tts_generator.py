@@ -20,6 +20,7 @@ import json
 import logging
 import os
 import re
+import sys
 import time
 import warnings
 from pathlib import Path
@@ -39,6 +40,9 @@ import yaml
 from rich.console import Console
 from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeElapsedColumn
 from TTS.api import TTS
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from pipeline.live_state import begin_step, finish_step, increment, update_current
 
 console = Console()
 
@@ -162,6 +166,7 @@ def main():
         entries = [e for e in entries if e["entry_id"] == args.entry_id]
 
     console.rule("[bold cyan]Step 4: Local GPU Batch Voice Synthesis (Coqui XTTS-v2 CUDA)[/bold cyan]")
+    begin_step("tts", total=len(entries))
 
     synthesizer = XTTSBatchSynthesizer(cfg)
     start_all = time.time()
@@ -176,16 +181,25 @@ def main():
     ) as progress:
         task = progress.add_task("[green]Synthesizing Midnight DE Quests...", total=len(entries))
 
-        for e in entries:
+        for idx, e in enumerate(entries, 1):
             eid = e["entry_id"]
             out_wav = raw_tts_dir / f"{eid}_raw.wav"
             progress.update(task, description=f"[green]Synthesizing {eid} ({e['npc_name']})...")
+            update_current({
+                "entry_id": eid,
+                "npc_name": e["npc_name"],
+                "quest_title_de": e.get("quest_title_de", ""),
+                "phase": e.get("phase", ""),
+                "status": "synth_cached" if (out_wav.exists() and not args.force) else "synthesizing",
+                "cer": None,
+            })
 
             if out_wav.exists() and not args.force:
                 info = sf.info(str(out_wav))
                 e["raw_tts_wav"] = str(out_wav)
                 e["raw_tts_duration_sec"] = round(info.duration, 2)
                 progress.advance(task)
+                increment(processed=1)
                 continue
 
             prosody = e.get("prosody", {})
@@ -199,6 +213,7 @@ def main():
             e["raw_tts_wav"] = str(out_wav)
             e["raw_tts_duration_sec"] = dur
             progress.advance(task)
+            increment(processed=1)
 
     elapsed = time.time() - start_all
     pilot_path.write_text(json.dumps(pilot_data, indent=2, ensure_ascii=False), encoding="utf-8")
@@ -207,6 +222,7 @@ def main():
         torch.cuda.empty_cache()
 
     console.print(f"[bold green]✓ Synthesized {len(entries)} German voiceover files in {elapsed:.1f}s -> {raw_tts_dir}[/bold green]")
+    finish_step(ok=True)
 
 
 if __name__ == "__main__":

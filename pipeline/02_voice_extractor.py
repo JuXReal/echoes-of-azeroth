@@ -17,6 +17,7 @@ Extracts clean, dry 6–10s reference voice seeds from the English original OGGs
 import argparse
 import json
 import subprocess
+import sys
 from pathlib import Path
 from typing import Dict, List, Tuple
 
@@ -25,6 +26,9 @@ import soundfile as sf
 import yaml
 from rich.console import Console
 from rich.table import Table
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from pipeline.live_state import begin_step, finish_step, increment, update_current
 
 console = Console()
 
@@ -188,6 +192,7 @@ def main():
         d.mkdir(parents=True, exist_ok=True)
 
     console.rule("[bold cyan]Step 2: Voice Seed Extraction & Embedding Pool (24kHz Mono WAV)[/bold cyan]")
+    begin_step("voices", total=len(pilot_data["entries"]))
 
     pilot_data = json.loads(pilot_path.read_text(encoding="utf-8"))
     all_entries = json.loads(full_path.read_text(encoding="utf-8"))
@@ -260,6 +265,15 @@ def main():
         arch = e["voice_archetype"]
         arch_info = archetype_seeds[arch]
 
+        update_current({
+            "entry_id": e["entry_id"],
+            "npc_name": e["npc_name"],
+            "quest_title_de": e.get("quest_title_de", ""),
+            "phase": e.get("phase", ""),
+            "status": "extracting_seed",
+            "cer": None,
+        })
+
         st, dur, _ = find_best_speech_window(
             ogg_p,
             min_sec=ve_cfg["min_duration_sec"],
@@ -291,6 +305,7 @@ def main():
         e["reference_voice_wav"] = chosen_wav
         e["reference_voice_duration_sec"] = chosen_dur
         e["archetype_voice_wav"] = arch_info["wav_path"]
+        increment(processed=1)
 
         table.add_row(
             e["entry_id"],
@@ -308,6 +323,7 @@ def main():
     manifest_path = ref_dir / "voice_pool_manifest.json"
     manifest_path.write_text(json.dumps(archetype_seeds, indent=2, ensure_ascii=False), encoding="utf-8")
     console.print(f"[bold green]✓ Extracted {len(archetype_seeds)} canonical NPC/Archetype seeds & {len(entries)} line seeds -> {ref_dir}[/bold green]")
+    finish_step(ok=True)
 
 
 if __name__ == "__main__":

@@ -25,6 +25,7 @@ import argparse
 import json
 import random
 import re
+import sys
 from pathlib import Path
 from typing import Dict, List
 
@@ -39,6 +40,16 @@ from mutagen.oggvorbis import OggVorbis
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from pipeline.ai_client import get_settings as get_ai_settings, is_available as ai_is_available
+from pipeline.live_state import (
+    begin_step,
+    finish_step,
+    increment,
+    set_ai_config,
+    update_current,
+)
 
 console = Console()
 
@@ -177,6 +188,18 @@ def main():
         f"[cyan]• Running Audit on {audit_target_desc} | Total Available Files: {len(entries)}...[/cyan]"
     )
 
+    # Live progress + AI config for the Web Studio
+    begin_step("audit", total=len(sampled_entries))
+    try:
+        ai_settings = get_ai_settings(cfg)
+        set_ai_config(
+            enabled=ai_is_available(ai_settings),
+            provider=ai_settings.get("provider"),
+            model=ai_settings.get("model") if ai_is_available(ai_settings) else None,
+        )
+    except Exception:
+        pass
+
     # Load Whisper for independent verification on final mastered OGGs
     try:
         whisper = WhisperModel("base", device="cuda" if torch.cuda.is_available() else "cpu", compute_type="float16")
@@ -197,6 +220,14 @@ def main():
     passed_all = 0
     for idx, e in enumerate(sampled_entries, 1):
         ogg_p = final_ogg_dir / e["target_ogg_filename"]
+        update_current({
+            "entry_id": e["entry_id"],
+            "npc_name": e["npc_name"],
+            "quest_title_de": e.get("quest_title_de", ""),
+            "phase": e.get("phase", ""),
+            "status": "auditing",
+            "cer": None,
+        })
         acoustics = analyze_ogg_acoustics(ogg_p)
 
         segments, _ = whisper.transcribe(str(ogg_p), language="de", beam_size=5, vad_filter=True)
@@ -210,6 +241,21 @@ def main():
         verdict_pass = acoustics["acoustically_valid"] and (cer <= 0.15)
         if verdict_pass:
             passed_all += 1
+
+        increment(
+            processed=1,
+            passed=1 if verdict_pass else 0,
+            failed=0 if verdict_pass else 1,
+            current={
+                "entry_id": e["entry_id"],
+                "npc_name": e["npc_name"],
+                "quest_title_de": e.get("quest_title_de", ""),
+                "phase": e.get("phase", ""),
+                "status": "passed" if verdict_pass else "failed",
+                "cer": round(cer * 100, 1),
+                "error": round(cer * 100, 1),
+            },
+        )
 
         audit_item = {
             "entry_id": e["entry_id"],
@@ -265,6 +311,7 @@ def main():
         f"\n[bold green]✓ Independent Audit Complete: {passed_all}/{len(audit_results)} passed "
         f"(Avg Post-FX CER: {avg_cer*100:.1f}%) -> {out_report}[/bold green]"
     )
+    finish_step(ok=True)
     if len(audit_results) < args.sample_size:
         console.print(
             f"[yellow]ℹ️  Note: Currently {len(audit_results)} quests are rendered (Pilot Run). "

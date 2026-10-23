@@ -15,10 +15,15 @@ Nothing enters the addon unverified! Implements a two-stage QA gate:
      temperature, repetition_penalty, and pause settings.
 
 2. Frontier QA Inspector (Stage 2 Escalation):
-   - If a line still shows discrepancies on Warcraft proper nouns or complex
-     clauses during retries, the Frontier Inspector analyzes the Whisper
-     transcript vs. target text, dynamically adapts the phonetic script,
-     and re-synthesizes until QA passes.
+   - Attempts 1..N use the deterministic local phonetic repair rules.
+   - After `ai.trigger_after_failures` (default: 3) failed attempts, the
+     configured external AI (OpenAI / OpenRouter / Google Gemini / DeepSeek /
+     Ollama — see pipeline/ai_client.py) analyzes the Whisper transcript vs.
+     the target text and rewrites an optimized phonetic script, which is then
+     re-synthesized and re-validated.
+
+Live progress (current quest, attempt, CER, counts, ETA, AI calls) is written
+to output/qa_reports/live_state.json for the Web Studio.
 """
 
 import argparse
@@ -28,10 +33,13 @@ import json
 import logging
 import os
 import re
+import sys
 import time
 import warnings
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 # Suppress cosmetic upstream warnings
 os.environ["COQUI_TOS_AGREED"] = "1"
@@ -47,6 +55,20 @@ from faster_whisper import WhisperModel
 from jiwer import wer as compute_wer
 from rich.console import Console
 from rich.table import Table
+
+from pipeline.ai_client import (
+    get_settings as get_ai_settings,
+    is_available as ai_is_available,
+    repair_script_with_ai,
+)
+from pipeline.live_state import (
+    begin_step,
+    finish_step,
+    increment,
+    log_ai_call,
+    set_ai_config,
+    update_current,
+)
 
 console = Console()
 
@@ -217,6 +239,7 @@ def frontier_inspector_phonetic_repair(script_text: str, transcript: str, attemp
 def main():
     parser = argparse.ArgumentParser(description="Step 5: Faster-Whisper + Frontier QA Gate.")
     parser.add_argument("--config", default="config.yaml", help="Path to config.yaml")
+    parser.add_argument("--entry-id", default=None, help="Validate only a single entry_id (used by regenerate_single.sh)")
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parent.parent
@@ -233,8 +256,30 @@ def main():
 
     pilot_data = json.loads(pilot_path.read_text(encoding="utf-8"))
     entries = pilot_data["entries"]
+    if args.entry_id:
+        entries = [e for e in entries if e["entry_id"] == args.entry_id]
+        if not entries:
+            console.print(f"[red]Error: No entry with entry_id '{args.entry_id}' found in {pilot_path.name}[/red]")
+            return
+
+    # --- AI repair configuration (keys only ever come from .env) ---
+    ai_settings = get_ai_settings(cfg)
+    ai_ok = ai_is_available(ai_settings)
+    set_ai_config(
+        enabled=ai_ok,
+        provider=ai_settings.get("provider"),
+        model=ai_settings.get("model") if ai_ok else None,
+    )
+    if ai_ok:
+        console.print(
+            f"[magenta]• Frontier AI-Repair aktiv: {ai_settings['provider']} / {ai_settings['model']} "
+            f"(nach {ai_settings['trigger_after_failures']} Fehlversuchen)[/magenta]"
+        )
+    else:
+        console.print("[dim]• Frontier AI-Repair inaktiv (kein Provider/Key in .env konfiguriert) — nur lokale Regeln.[/dim]")
 
     console.rule("[bold cyan]Step 5: Automated Quality Control Loop (Faster-Whisper + Frontier QA Inspector)[/bold cyan]")
+    begin_step("qa", total=len(entries))
 
     w_model_name = qa_cfg.get("whisper_model", "base")
     w_device = qa_cfg.get("whisper_device", "cuda") if torch.cuda.is_available() else "cpu"
@@ -265,7 +310,7 @@ def main():
     table.add_column("Status", justify="center")
     table.add_column("Whisper Transcript Preview", style="white")
 
-    for e in entries:
+    for idx, e in enumerate(entries, 1):
         eid = e["entry_id"]
         wav_path = Path(e["raw_tts_wav"])
         target_text = e["tts_script_text"]
@@ -274,6 +319,18 @@ def main():
         best_eval = None
         best_attempt = 1
         attempt_history = []
+        ai_used = False
+        ai_provider = None
+
+        update_current({
+            "entry_id": eid,
+            "npc_name": e["npc_name"],
+            "quest_title_de": e.get("quest_title_de", ""),
+            "phase": e.get("phase", ""),
+            "status": "validating",
+            "attempt": 0,
+            "cer": None,
+        })
 
         for attempt in range(1, max_retries + 2):
             eval_res = evaluate_audio_with_whisper(whisper, wav_path, target_text, raw_de_text)
@@ -282,12 +339,25 @@ def main():
             eval_res["attempt"] = attempt
             attempt_history.append(eval_res)
 
+            update_current({
+                "entry_id": eid,
+                "npc_name": e["npc_name"],
+                "quest_title_de": e.get("quest_title_de", ""),
+                "phase": e.get("phase", ""),
+                "status": "passed" if passed else f"attempt_{attempt}",
+                "attempt": attempt,
+                "cer": round(eval_res["cer"] * 100, 1),
+                "error": round(eval_res["effective_error"] * 100, 1),
+                "reason": eval_res["hallucination_reason"],
+            })
+
             if best_eval is None or eval_res["effective_error"] < best_eval["effective_error"]:
+                if best_eval is not None:
+                    # Save backup of the best WAV so far (only when a better take exists)
+                    best_backup = wav_path.with_name(f"{eid}_best.wav")
+                    best_backup.write_bytes(wav_path.read_bytes())
                 best_eval = eval_res
                 best_attempt = attempt
-                # Save backup of best WAV so far
-                best_backup = wav_path.with_name(f"{eid}_best.wav")
-                best_backup.write_bytes(wav_path.read_bytes())
 
             if passed:
                 break
@@ -302,10 +372,57 @@ def main():
                     XTTSBatchSynthesizer = load_tts_synthesizer_class(project_root)
                     synthesizer = XTTSBatchSynthesizer(cfg)
 
-                # Frontier Inspector repairs script & adjusts temperature/pause/seed
-                repaired_script, inspector_note = frontier_inspector_phonetic_repair(
-                    target_text, eval_res["transcript"], attempt
-                )
+                # After `trigger_after_failures` failed attempts: external AI repair
+                use_ai = ai_ok and attempt >= ai_settings["trigger_after_failures"]
+                if use_ai:
+                    update_current({
+                        "entry_id": eid,
+                        "npc_name": e["npc_name"],
+                        "quest_title_de": e.get("quest_title_de", ""),
+                        "phase": e.get("phase", ""),
+                        "status": "ai_repair",
+                        "attempt": attempt,
+                        "cer": round(eval_res["cer"] * 100, 1),
+                        "ai_provider": ai_settings["provider"],
+                    })
+                    console.print(
+                        f"[magenta]  ✨ Frontier AI-Repair ({ai_settings['provider']} / {ai_settings['model']}) "
+                        f"for {eid} after {attempt} failed attempts...[/magenta]"
+                    )
+                    repaired_script, inspector_note = repair_script_with_ai(
+                        ai_settings,
+                        target_text,
+                        eval_res["transcript"],
+                        entry_context=f"NPC: {e['npc_name']} | Quest: {e.get('quest_title_de', eid)} | Phase: {e.get('phase', '')}",
+                    )
+                    if repaired_script is not None:
+                        ai_used = True
+                        ai_provider = ai_settings["provider"]
+                        log_ai_call(
+                            ai_settings["provider"],
+                            ai_settings["model"],
+                            eid,
+                            inspector_note,
+                            ok=True,
+                        )
+                    else:
+                        log_ai_call(
+                            ai_settings["provider"],
+                            ai_settings["model"],
+                            eid,
+                            f"failed ({inspector_note}) — Fallback: lokale Regeln",
+                            ok=False,
+                        )
+                        repaired_script, inspector_note = frontier_inspector_phonetic_repair(
+                            target_text, eval_res["transcript"], attempt
+                        )
+                        inspector_note = f"ai_fallback: {inspector_note}"
+                else:
+                    # Deterministic local Frontier Inspector repair
+                    repaired_script, inspector_note = frontier_inspector_phonetic_repair(
+                        target_text, eval_res["transcript"], attempt
+                    )
+
                 target_text = repaired_script
                 e["tts_script_text"] = repaired_script
 
@@ -343,6 +460,8 @@ def main():
             "transcript": best_eval["transcript"],
             "hallucination": best_eval["hallucination"],
             "history": attempt_history,
+            "ai_used": ai_used,
+            "ai_provider": ai_provider,
         }
         qa_logs.append({
             "entry_id": eid,
@@ -351,6 +470,30 @@ def main():
             "target_script": e["tts_script_text"],
             "qa_result": e["qa_result"],
         })
+
+        # Live progress for the Web Studio (counts + ETA)
+        increment(
+            processed=1,
+            passed=1 if best_eval["passed"] else 0,
+            failed=0 if best_eval["passed"] else 1,
+            retried=1 if len(attempt_history) > 1 else 0,
+            ai_repaired=1 if ai_used else 0,
+            current={
+                "entry_id": eid,
+                "npc_name": e["npc_name"],
+                "quest_title_de": e.get("quest_title_de", ""),
+                "phase": e.get("phase", ""),
+                "status": "passed" if best_eval["passed"] else "failed",
+                "attempt": best_attempt,
+                "cer": round(best_eval["cer"] * 100, 1),
+                "error": round(best_eval["effective_error"] * 100, 1),
+                "ai_used": ai_used,
+            },
+        )
+
+        # Periodically flush QA results so the Web Studio playlist updates live
+        if idx % 10 == 0 or idx == len(entries):
+            pilot_path.write_text(json.dumps(pilot_data, indent=2, ensure_ascii=False), encoding="utf-8")
 
         status_badge = "[bold green]PASS[/bold green]" if best_eval["passed"] else "[bold yellow]WARN (Best)[/bold yellow]"
         t_prev = best_eval["transcript"]
@@ -382,6 +525,8 @@ def main():
         f"[bold green]✓ QA Validation finished: {passed_count}/{len(qa_logs)} passed strictly "
         f"(Avg CER: {avg_cer*100:.1f}%, Avg Combined Error: {avg_err*100:.1f}%) -> {report_file}[/bold green]"
     )
+
+    finish_step(ok=True)
 
     del whisper
     if synthesizer is not None:
