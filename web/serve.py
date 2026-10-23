@@ -73,11 +73,18 @@ def _run_background_commands(commands: list, project_root: Path, mode: str, expa
         )
         for line in proc.stdout:
             clean_line = line.rstrip()
-            if clean_line:
-                with JOB_LOCK:
-                    CURRENT_JOB["logs"].append(clean_line)
-                    if len(CURRENT_JOB["logs"]) > 250:
-                        CURRENT_JOB["logs"] = CURRENT_JOB["logs"][-250:]
+            if not clean_line:
+                continue
+            # Filter cosmetic model config notices and raw progress bar fragments
+            if "[transformers] Model config: bos_token_id" in clean_line or "[transformers] Model config: eos_token_id" in clean_line:
+                continue
+            if "Fetching 9 files:" in clean_line:
+                continue
+
+            with JOB_LOCK:
+                CURRENT_JOB["logs"].append(clean_line)
+                if len(CURRENT_JOB["logs"]) > 250:
+                    CURRENT_JOB["logs"] = CURRENT_JOB["logs"][-250:]
         proc.wait()
         if proc.returncode != 0:
             exit_code = proc.returncode
