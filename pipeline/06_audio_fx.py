@@ -21,6 +21,7 @@ Step 6: Audio Post-Processing & Addon Export (06_audio_fx.py)
 
 import argparse
 import json
+import os
 import shutil
 import subprocess
 from pathlib import Path
