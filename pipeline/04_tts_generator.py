@@ -47,6 +47,23 @@ from pipeline.live_state import begin_step, finish_step, increment, update_curre
 console = Console()
 
 
+def _hard_split_sentence(sent: str, limit: int = 200) -> List[str]:
+    """Teilt überlange Sätze an Wortgrenzen (verhindert XTTS-Token-Truncation)."""
+    if len(sent) <= limit:
+        return [sent]
+    chunks: List[str] = []
+    cur = ""
+    for w in sent.split(" "):
+        if cur and len(cur) + len(w) + 1 > limit:
+            chunks.append(cur.strip())
+            cur = w
+        else:
+            cur = f"{cur} {w}".strip()
+    if cur:
+        chunks.append(cur)
+    return chunks
+
+
 class XTTSBatchSynthesizer:
     """High-efficiency CUDA XTTS-v2 synthesizer with latent caching & VRAM control."""
 
@@ -102,6 +119,8 @@ class XTTSBatchSynthesizer:
         raw_sentences = [s.strip() for s in re.split(r"(?<=[.!?])\s+", text.strip()) if s.strip()]
         if not raw_sentences:
             raw_sentences = [text.strip()]
+        # Hart-Split überlanger Sätze — XTTS' eigener Splitter bräuchte sonst spacy
+        raw_sentences = [chunk for s in raw_sentences for chunk in _hard_split_sentence(s)]
 
         audio_chunks: List[np.ndarray] = []
         silence_gap = np.zeros(int(self.sample_rate * (pause_ms / 1000.0)), dtype=np.float32)
@@ -119,7 +138,7 @@ class XTTSBatchSynthesizer:
                     top_k=top_k,
                     top_p=top_p,
                     speed=spd,
-                    enable_text_splitting=True,
+                    enable_text_splitting=False,
                 )
                 wav_chunk = np.asarray(out["wav"], dtype=np.float32)
                 # Trim trailing artifact clicks if any

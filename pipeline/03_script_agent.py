@@ -302,6 +302,25 @@ def stage2_frontier_dramaturgy(text_tier1: str, entry: Dict, lexicon: Dict[str, 
     tts_script = " ".join(refined_sentences)
     tts_script = re.sub(r"\s+", " ", tts_script).strip()
 
+    # Härte-Split: Sätze > 240 Zeichen an Wortgrenzen teilen (XTTS-Tokenlimit)
+    hard_split = []
+    for s in refined_sentences:
+        if len(s) <= 240:
+            hard_split.append(s)
+            continue
+        part, parts = "", []
+        for w in s.split(" "):
+            if part and len(part) + len(w) + 1 > 200:
+                parts.append(part)
+                part = w
+            else:
+                part = f"{part} {w}".strip()
+        if part:
+            parts.append(part)
+        hard_split.extend(parts)
+    refined_sentences = hard_split
+    tts_script = " ".join(refined_sentences).strip()
+
     prosody = infer_emotion_and_prosody(entry, cfg)
     return tts_script, phonetic_text, applied_phonetics, prosody
 
