@@ -185,6 +185,16 @@ def detect_hallucinations(transcript: str, target: str) -> Tuple[bool, str]:
                     return True, f"trailing_continuation (+{extra} Woerter)"
                 break
 
+    # Voiced punctuation: XTTS literally speaks "Punkt" (target never contains it).
+    # Whisper sometimes hallucinates a single "punkt" filler, so require >= 2.
+    if "punkt" not in set(target_words) and words.count("punkt") >= 2:
+        return True, f"voiced_punctuation (punkt x{words.count('punkt')})"
+
+    # Immediate 2-word repetition loop ("nach ihm nach ihm")
+    for i in range(len(words) - 3):
+        if words[i] != words[i + 1] and words[i] == words[i + 2] and words[i + 1] == words[i + 3]:
+            return True, f"repeated_bigram ({words[i]} {words[i+1]})"
+
     # Check 3-gram repetition loop
     for i in range(len(words) - 5):
         trigram = words[i : i + 3]
@@ -213,9 +223,12 @@ def evaluate_audio_with_whisper(
     norm_trans = normalize_for_comparison(transcript)
     norm_target = normalize_for_comparison(target_text)
     norm_raw = normalize_for_comparison(raw_de_text) if raw_de_text else norm_target
+    # Halluzinations-Erkennung sieht den UNGEFILTERTEN Text (erkennt "punkt"-Füllwörter),
+    # die CER-/WER-Wertung nutzt die gefilterte Version (keine falschen Abzüge).
+    norm_trans_full = norm_trans
     norm_trans = strip_whisper_fillers(norm_trans, norm_target)
 
-    if not norm_trans:
+    if not norm_trans_full:
         return {
             "transcript": "",
             "wer": 1.0,
@@ -239,7 +252,7 @@ def evaluate_audio_with_whisper(
     # count as 2 word errors in naive WER despite 99% phonetic accuracy).
     effective_error = round(0.55 * cer_val + 0.45 * wer_val, 4)
 
-    is_halluc, reason = detect_hallucinations(norm_trans, norm_target)
+    is_halluc, reason = detect_hallucinations(norm_trans_full, norm_target)
     return {
         "transcript": transcript,
         "wer": round(wer_val, 4),

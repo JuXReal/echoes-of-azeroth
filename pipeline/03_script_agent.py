@@ -150,6 +150,8 @@ def normalize_punctuation(text: str) -> str:
     out = re.sub(r"\?{2,}", "? ", out)
     # Trennzeichen, die XTTS aussprechen könnte
     out = out.replace("·", ", ")
+    # Gedankenstriche -> Sprechpause (XTTS voziert sie sonst teils als "Bindestrich")
+    out = out.replace("—", ", ").replace("–", ", ")
     # Keine Leerzeichen vor Satzzeichen
     out = re.sub(r"\s+([,.;:!?])", r"\1", out)
     # Verwaiste einzelne Punkte entfernen (z. B. " . " oder ".." Reste)
