@@ -148,37 +148,48 @@ def _run_background_commands(commands: list, project_root: Path, mode: str, expa
 
     live_begin_job(mode=mode, expansion=expansion)
 
-    exit_code = 0
-    for cmd in commands:
-        with JOB_LOCK:
-            CURRENT_JOB["logs"].append(f"\n$ {' '.join(cmd)}")
-        proc = subprocess.Popen(
-            cmd,
-            cwd=str(project_root),
-            env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True,
-            bufsize=1,
-        )
-        for line in proc.stdout:
-            clean_line = line.rstrip()
-            if not clean_line:
-                continue
-            # Filter cosmetic model config notices and raw progress bar fragments
-            if "[transformers] Model config: bos_token_id" in clean_line or "[transformers] Model config: eos_token_id" in clean_line:
-                continue
-            if "Fetching 9 files:" in clean_line:
-                continue
+    # Ausgabe in eine Datei statt in eine Pipe: überlebt Server-Neustarts,
+    # weil der Job-Prozess bei einem getöteten Server nicht an SIGPIPE stirbt.
+    log_path = project_root / "output" / "qa_reports" / "job_log.txt"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
 
+    exit_code = 0
+    with open(log_path, "a", encoding="utf-8") as logf:
+        logf.write(f"\n[{time.strftime('%H:%M:%S')}] Starting job: {mode} ({expansion})\n")
+        for cmd in commands:
             with JOB_LOCK:
-                CURRENT_JOB["logs"].append(clean_line)
-                if len(CURRENT_JOB["logs"]) > 400:
-                    CURRENT_JOB["logs"] = CURRENT_JOB["logs"][-400:]
-        proc.wait()
-        if proc.returncode != 0:
-            exit_code = proc.returncode
-            break
+                CURRENT_JOB["logs"].append(f"\n$ {' '.join(cmd)}")
+            logf.write(f"\n$ {' '.join(cmd)}\n")
+            logf.flush()
+            proc = subprocess.Popen(
+                cmd,
+                cwd=str(project_root),
+                env=env,
+                stdout=logf,
+                stderr=subprocess.STDOUT,
+                text=True,
+                start_new_session=True,
+            )
+            while proc.poll() is None:
+                time.sleep(0.5)
+                try:
+                    with open(log_path, "rb") as f:
+                        f.seek(0, 2)
+                        f.seek(max(0, f.tell() - 8192))
+                        tail = f.read().decode("utf-8", errors="replace")
+                    lines = [
+                        l.rstrip() for l in tail.splitlines()
+                        if l.strip()
+                        and "[transformers] Model config:" not in l
+                        and "Fetching 9 files:" not in l
+                    ]
+                    with JOB_LOCK:
+                        CURRENT_JOB["logs"] = lines[-400:]
+                except Exception:
+                    pass
+            if proc.returncode != 0:
+                exit_code = proc.returncode
+                break
 
     with JOB_LOCK:
         CURRENT_JOB["running"] = False
@@ -527,6 +538,21 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
             with JOB_LOCK:
                 job = dict(CURRENT_JOB)
                 job["logs"] = list(job.get("logs", []))[-400:]
+            # Nach einem Server-Neustart: Job-Log-Datei als Konsole verwenden
+            if not job["logs"]:
+                try:
+                    log_path = self.project_root / "output" / "qa_reports" / "job_log.txt"
+                    if log_path.exists():
+                        tail = log_path.read_text(encoding="utf-8", errors="replace")
+                        lines = [
+                            l.rstrip() for l in tail.splitlines()
+                            if l.strip()
+                            and "[transformers] Model config:" not in l
+                            and "Fetching 9 files:" not in l
+                        ]
+                        job["logs"] = lines[-400:]
+                except Exception:
+                    pass
             job["state"] = load_live_state()
             job["ai"] = self._safe_ai_settings()
             job["usage"] = get_usage()

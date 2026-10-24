@@ -30,3 +30,4 @@ data/local/
 *.pth
 *.gguf
 *.onnx
+job_log.txt
