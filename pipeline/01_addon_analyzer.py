@@ -333,10 +333,14 @@ def fetch_wowhead_de_quest_full(quest_id: int, domain: str = "www.wowhead.com/de
                 result["end_npc_name"] = result["start_npc_name"]
 
         # Extract Beschreibung, Fortschritt, Vervollständigung
+        # (DE-Seiten deutsch, EN-Seiten englisch — beide Varianten matchen)
         section_map = {
             "Beschreibung": "Desc",
             "Fortschritt": "Prog",
             "Vervollständigung": "Comp",
+            "Description": "Desc",
+            "Progress": "Prog",
+            "Completion": "Comp",
         }
         for h2 in soup.find_all("h2", class_="heading-size-3"):
             sec_title = h2.get_text(strip=True)
@@ -611,7 +615,10 @@ def scrape_missing_pack_quests(
                         if t:
                             tdata[phase] = t
                             log_ai_call(ai_settings["provider"], ai_settings["model"], f"{qid}_{phase}", note, ok=True, tokens=usage, cost_usd=usage.get("cost_usd", 0.0))
-                    trans_cache[qid_str] = tdata
+                    # Nur cachen, wenn wirklich etwas übersetzt wurde — sonst
+                    # beim nächsten Lauf erneut versuchen
+                    if any((tdata.get(k) or "").strip() for k in ("Desc", "Prog", "Comp", "title")):
+                        trans_cache[qid_str] = tdata
                 if idx % 50 == 0 or idx == len(missing_de):
                     trans_cache_file.write_text(json.dumps(trans_cache, indent=2, ensure_ascii=False), encoding="utf-8")
                     en_cache_file.write_text(json.dumps(en_cache, indent=2, ensure_ascii=False), encoding="utf-8")
