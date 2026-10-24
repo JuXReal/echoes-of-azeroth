@@ -279,6 +279,13 @@ def parse_voiceovers_list(vo_list_path: Path) -> Tuple[List[str], Dict[str, floa
 # ==============================================================================
 # Wowhead DE Full Quest Scraper (Title + Desc + Prog + Comp + Starter/Ender NPC)
 # ==============================================================================
+def sanitize_quest_title(title: str) -> str:
+    """Entfernt Wowhead-Markup/JSON-Reste aus Quest-Titeln."""
+    t = re.sub(r"\s*\|.*$", "", title)          # "Titel | .","date":..." -> "Titel"
+    t = re.sub(r'\.\s*"date".*$', "", t)        # eingebettete Kommentar-JSON-Reste
+    return t.strip()[:200]
+
+
 def fetch_wowhead_de_quest_full(quest_id: int) -> Dict:
     """
     Scrapes a German quest page (`https://www.wowhead.com/de/quest=<id>`) for:
@@ -310,7 +317,7 @@ def fetch_wowhead_de_quest_full(quest_id: int) -> Dict:
 
         h1 = soup.find("h1", class_="heading-size-1")
         if h1 and h1.text:
-            result["title"] = h1.text.strip()
+            result["title"] = sanitize_quest_title(h1.text)
 
         # Extract Starter & Ender NPC from Wowhead markup (`[url=/de/npc=258019/magister-umbric]Magister Umbric[/url]`)
         npc_links = re.findall(r"npc=(\d+)(?:\\?/[^\]\">]+)?[\]\">]([^\[<]+)", html)
@@ -611,7 +618,7 @@ def fetch_wowhead_de_quest_title(quest_id: int, cache: Dict[int, str]) -> str:
             soup = BeautifulSoup(resp.text, "lxml")
             h1 = soup.find("h1", class_="heading-size-1")
             if h1 and h1.text:
-                title = h1.text.strip()
+                title = sanitize_quest_title(h1.text)
                 cache[quest_id] = title
                 return title
     except Exception:
