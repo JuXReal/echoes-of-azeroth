@@ -832,6 +832,8 @@
       statistics: null,
       expansions: [],
       selectedExpansions: new Set(),
+      playing: false,
+      gridDirty: false,
       liveAudio: null,
       filters: { q: "", speaker: "all", race: "all", status: "all", sort: "file" },
     };
@@ -1155,7 +1157,14 @@
       const pct = total > 0 ? Math.min(100, (processed / total) * 100) : 0;
       $("progressFill").style.width = `${pct}%`;
       $("liveCounts").textContent = `${processed} / ${total || App.entries.length || 0}`;
-      $("liveEta").textContent = qaCount > (counts.processed || 0) && st.step && st.step.key === "qa" ? "—" : fmtEta(st.eta_seconds);
+      if (st.eta_seconds != null) {
+        App.lastEta = { value: st.eta_seconds, at: Date.now() };
+      }
+      let displayEta = st.eta_seconds;
+      if (App.lastEta && displayEta != null) {
+        displayEta = Math.max(0, App.lastEta.value - Math.floor((Date.now() - App.lastEta.at) / 1000));
+      }
+      $("liveEta").textContent = qaCount > (counts.processed || 0) && st.step && st.step.key === "qa" ? "—" : fmtEta(displayEta);
       $("liveStepLabel").textContent = st.step
         ? `${t("step_of")} ${st.step.index}/${totalSteps} · ${esc(st.step.label || stepLabels[st.step.index] || "")}${st.step.done ? " ✓" : ""}`
         : t("ready");
@@ -1474,6 +1483,10 @@
     }
 
     function renderGrid() {
+      if (App.playing) {
+        App.gridDirty = true;
+        return;
+      }
       const list = filteredEntries();
       const slice = list.slice(0, App.visible);
       const container = $("playlistContainer");
@@ -1483,8 +1496,24 @@
         return;
       }
       container.innerHTML = slice.map(cardHtml).join("");
+      container.querySelectorAll("audio").forEach((a) => {
+        a.addEventListener("play", () => { App.playing = true; });
+        a.addEventListener("pause", audioMaybeIdle);
+        a.addEventListener("ended", audioMaybeIdle);
+      });
       $("loadMoreBtn").style.display = list.length > App.visible ? "" : "none";
       $("loadMoreBtn").textContent = `${t("load_more")} (${Math.min(60, list.length - App.visible)} ${t("load_more_more")} ${list.length})`;
+    }
+
+    function audioMaybeIdle() {
+      const anyPlaying = Array.from(document.querySelectorAll("audio")).some((a) => !a.paused);
+      if (!anyPlaying) {
+        App.playing = false;
+        if (App.gridDirty) {
+          App.gridDirty = false;
+          renderGrid();
+        }
+      }
     }
 
     function loadMore() { App.visible += 60; renderGrid(); }
