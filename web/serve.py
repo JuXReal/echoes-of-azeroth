@@ -44,6 +44,7 @@ from pipeline.ai_client import (
 from pipeline.live_state import (
     begin_job as live_begin_job,
     finish_job as live_finish_job,
+    get_expansion_status,
     get_usage,
     load as load_live_state,
     set_ai_config as live_set_ai_config,
@@ -496,6 +497,7 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
             job["state"] = load_live_state()
             job["ai"] = self._safe_ai_settings()
             job["usage"] = get_usage()
+            job["expansion_status"] = get_expansion_status()
             self._send_json(job)
             return
 

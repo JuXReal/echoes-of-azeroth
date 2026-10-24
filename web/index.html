@@ -506,7 +506,7 @@
       <div class="live-grid">
         <div class="progress-block">
           <div class="progress-head">
-            <span id="liveStepLabel" data-i18n="ready"></span>
+            <span><span id="liveStepLabel" data-i18n="ready"></span> <span class="badge race" id="liveExpansion" style="display:none;"></span></span>
             <span><b id="liveCounts">0 / 0</b> · ETA <b id="liveEta">—</b></span>
           </div>
           <div class="bar"><i id="progressFill"></i></div>
@@ -515,6 +515,7 @@
             <div class="title" id="curTitle">—</div>
             <div class="meta">
               <span id="curNpc">—</span>
+              <span id="curExpansion"></span>
               <span id="curStatusChip"></span>
               <span id="curCer">—</span>
             </div>
@@ -580,6 +581,11 @@
 
       <!-- ================= ASIDE ================= -->
       <aside>
+        <section class="panel">
+          <div class="panel-title" data-i18n="panel_expansions"></div>
+          <div class="ov-rows" id="expansionsRows"><div class="empty-note" data-i18n="exp_never"></div></div>
+        </section>
+
         <section class="panel">
           <div class="panel-title" data-i18n="panel_overview"></div>
           <div class="ov-rows" id="overviewRows"></div>
@@ -664,6 +670,9 @@
         panel_audit: "Independent Audit",
         panel_aisettings: "KI-Einstellungen · Repair",
         panel_activity: "Letzte Aktivität",
+        panel_expansions: "Expansionen",
+        exp_never: "Noch keine Expansion gelaufen.",
+        exp_finished: "fertig", exp_stopped: "pausiert",
         ai_inactive: "Inaktiv", ai_none_configured: "(keine externe KI konfiguriert)", ai_ready: "✦ bereit", ai_off: "◌ aus",
         ai_no_calls: "Noch keine KI-Aufrufe in diesem Lauf.",
         kv_processed: "Verarbeitet", kv_passed: "Bestanden", kv_failed: "Probleme", kv_retried: "Retries", kv_repaired: "KI-repariert",
@@ -736,6 +745,9 @@
         panel_audit: "Independent Audit",
         panel_aisettings: "AI Settings · Repair",
         panel_activity: "Recent Activity",
+        panel_expansions: "Expansions",
+        exp_never: "No expansion run yet.",
+        exp_finished: "done", exp_stopped: "paused",
         ai_inactive: "Inactive", ai_none_configured: "(no external AI configured)", ai_ready: "✦ ready", ai_off: "◌ off",
         ai_no_calls: "No AI calls in this run yet.",
         kv_processed: "Processed", kv_passed: "Passed", kv_failed: "Problems", kv_retried: "Retries", kv_repaired: "AI-repaired",
@@ -1032,6 +1044,44 @@
       }
     }
 
+    /* ---------- expansion overview ---------- */
+    const EXPANSION_NAMES = ["Midnight", "The_War_Within", "Dragonflight", "Battle_for_Azeroth", "Wrath_of_the_Lich_King", "Vanilla"];
+
+    function currentExpansion() {
+      const expStatus = (App.live.job && App.live.job.expansion_status) || {};
+      let latest = null;
+      Object.entries(expStatus).forEach(([exp, s]) => {
+        if (!s.finished && (!latest || (s.updated_at || 0) > (latest.s.updated_at || 0))) {
+          latest = { exp, s };
+        }
+      });
+      if (latest) return latest.exp;
+      const st = App.live.state || {};
+      return st.expansion || null;
+    }
+
+    function renderExpansions() {
+      const expStatus = (App.live.job && App.live.job.expansion_status) || {};
+      const current = currentExpansion();
+      const stepLabels = { analyze: t("step1"), voices: t("step2"), script: t("step3"), tts: t("step4"), qa: t("step5"), fx: t("step6"), audit: t("step7") };
+      $("expansionsRows").innerHTML = EXPANSION_NAMES.map((name) => {
+        const s = expStatus[name];
+        const disp = name.replace(/_/g, " ");
+        if (!s) {
+          return `<div class="ov-row"><span class="l">${esc(disp)}</span><span class="v" style="color:var(--text-3)">—</span></div>`;
+        }
+        if (s.finished) {
+          return `<div class="ov-row"><span class="l">${esc(disp)}</span><span class="v" style="color:var(--green)">✓ ${esc(t("exp_finished"))} · ${esc(stepLabels[s.step] || s.step || "")}</span></div>`;
+        }
+        if (name === current) {
+          const c = s.counts || {};
+          const qaTxt = s.step === "qa" && c.total ? ` ${c.passed || 0}/${c.total} ✓` : "";
+          return `<div class="ov-row"><span class="l">${esc(disp)}</span><span class="v" style="color:var(--gold)">▶ ${esc(stepLabels[s.step] || s.step || "")}${qaTxt}</span></div>`;
+        }
+        return `<div class="ov-row"><span class="l">${esc(disp)}</span><span class="v">${esc(stepLabels[s.step] || s.step || "")} ✓ ${esc(t("exp_stopped"))}</span></div>`;
+      }).join("");
+    }
+
     function renderLive() {
       const st = App.live.state || {};
       const badge = $("liveStatusBadge");
@@ -1086,6 +1136,16 @@
         ? `${t("step_of")} ${st.step.index}/${totalSteps} · ${esc(st.step.label || stepLabels[st.step.index] || "")}${st.step.done ? " ✓" : ""}`
         : t("ready");
 
+      // Aktuelle Expansion (Badge im Live-Panel)
+      const curExp = currentExpansion();
+      const expBadge = $("liveExpansion");
+      if (curExp) {
+        expBadge.textContent = curExp.replace(/_/g, " ");
+        expBadge.style.display = "";
+      } else {
+        expBadge.style.display = "none";
+      }
+
       // current entry spotlight
       const cur = st.current;
       const curCard = $("currentCard");
@@ -1094,6 +1154,7 @@
         $("curId").textContent = cur.entry_id;
         $("curTitle").textContent = cur.quest_title_de || cur.entry_id;
         $("curNpc").textContent = `${t("npc")}: ${cur.npc_name || "—"}${cur.phase ? ` · ${cur.phase}` : ""}`;
+        $("curExpansion").textContent = curExp ? curExp.replace(/_/g, " ") : "";
         let chipCls = "validating";
         let chipLabel = t("validating");
         if (cur.status === "passed") { chipCls = "pass"; chipLabel = t("passed"); }
@@ -1183,6 +1244,8 @@
         con.textContent = App.live.job.logs.join("\n");
         if (con.style.display !== "none") con.scrollTop = con.scrollHeight;
       }
+
+      renderExpansions();
     }
 
     /* ---------- stats & filters ---------- */

@@ -48,6 +48,10 @@ def state_file() -> Path:
     return project_root() / "output" / "qa_reports" / "live_state.json"
 
 
+def expansion_status_file() -> Path:
+    return project_root() / "output" / "qa_reports" / "expansion_status.json"
+
+
 def usage_file() -> Path:
     return project_root() / "output" / "qa_reports" / "ai_usage.json"
 
@@ -144,8 +148,8 @@ def _deep_merge(base: dict, patch: dict) -> dict:
     return base
 
 
-def _write(data: dict) -> None:
-    path = state_file()
+def _write(data: dict, path: Path = None) -> None:
+    path = path or state_file()
     path.parent.mkdir(parents=True, exist_ok=True)
     tmp = path.with_suffix(path.suffix + ".tmp")
     with open(tmp, "w", encoding="utf-8") as f:
@@ -273,6 +277,38 @@ def increment(
         return data
 
 
+def get_expansion_status() -> dict:
+    """Persistenter Fortschritt je Expansion (übersteht Job-Wechsel)."""
+    try:
+        with open(expansion_status_file(), "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
+def _record_expansion_status(data: dict) -> None:
+    """Schreibt den Step-Abschluss in den persistenten Expansions-Status."""
+    try:
+        pilot = project_root() / "data" / "raw_de_text" / "midnight_de_pilot_20.json"
+        if not pilot.exists():
+            return
+        catalog = json.loads(pilot.read_text(encoding="utf-8"))
+        expansion = (catalog.get("addon_architecture") or {}).get("expansion")
+        if not expansion:
+            return
+        step = data.get("step") or {}
+        status = get_expansion_status()
+        entry = status.setdefault(str(expansion), {})
+        entry["step"] = step.get("key")
+        entry["step_done"] = bool(step.get("done"))
+        entry["updated_at"] = time.time()
+        entry["counts"] = dict(data.get("counts") or {})
+        entry["finished"] = bool(entry.get("finished") or (step.get("key") == "audit" and step.get("done")))
+        _write(status, expansion_status_file())
+    except Exception:
+        pass
+
+
 def finish_step(ok: bool = True) -> dict:
     with _LOCK:
         data = load()
@@ -282,7 +318,9 @@ def finish_step(ok: bool = True) -> dict:
             data["step"]["ok"] = bool(ok)
         data["updated_at"] = time.time()
         _write(data)
-        return data
+    # Expansions-Fortschritt persistieren (Expansion steht im Katalog)
+    _record_expansion_status(data)
+    return data
 
 
 def finish_job(ok: bool = True) -> dict:
