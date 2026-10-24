@@ -311,6 +311,37 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         parsed = urllib.parse.urlparse(self.path)
+        if parsed.path == "/api/approve_entry":
+            length = int(self.headers.get("Content-Length", "0"))
+            body = json.loads(self.rfile.read(length).decode("utf-8")) if length > 0 else {}
+            entry_id = body.get("entry_id")
+            if not entry_id:
+                self._send_json({"error": "entry_id is required"}, status=400)
+                return
+            pilot_path = self.project_root / self.cfg["paths"]["data_raw_de_text"] / "midnight_de_pilot_20.json"
+            if not pilot_path.exists():
+                self._send_json({"error": "Katalog nicht vorhanden"}, status=404)
+                return
+            try:
+                data = json.loads(pilot_path.read_text(encoding="utf-8"))
+            except Exception:
+                self._send_json({"error": "Katalog nicht lesbar"}, status=500)
+                return
+            found = None
+            for e in data.get("entries", []):
+                if e.get("entry_id") == entry_id:
+                    found = e
+                    break
+            if found is None:
+                self._send_json({"error": f"Eintrag {entry_id} nicht gefunden"}, status=404)
+                return
+            qa = found.setdefault("qa_result", {})
+            qa["passed"] = True
+            qa["approved_by_user"] = True
+            pilot_path.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+            self._send_json({"status": "approved", "entry_id": entry_id})
+            return
+
         if parsed.path == "/api/regenerate_entry":
             length = int(self.headers.get("Content-Length", "0"))
             body = json.loads(self.rfile.read(length).decode("utf-8")) if length > 0 else {}

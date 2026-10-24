@@ -710,6 +710,7 @@
         de_mastered: "DE Lokalisiert", en_original: "EN Original", raw_unmastered: "RAW Ungemastert",
         reference: "Referenz", en_gossip_ref: "EN-Zuordnung geschätzt (nach Länge)", unmastered_sub: "24 kHz WAV · vor Mastering",
         ab_compare: "A/B vergleichen", play_de: "▶ DE", regen: "↻ Neu generieren", voice_seed: "Voice-Seed",
+        approve: "✓ Als OK markieren", approved_by_ear: "Freigegeben (Hörprobe)", approved_toast: "als OK markiert ✓",
         not_rendered: "Noch nicht gerendert (Schritt 6)",
         ov_total: "Gesamt-Quests", ov_validated: "Validierte Quests", ov_passed: "QA bestanden",
         ov_problems: "Mit Problemen", ov_repaired: "KI-repariert", ov_retries: "Retries", ov_success: "Erfolgsquote (QA)",
@@ -789,6 +790,7 @@
         de_mastered: "DE Localized", en_original: "EN Original", raw_unmastered: "RAW Unmastered",
         reference: "Reference", en_gossip_ref: "EN match estimated (by length)", unmastered_sub: "24 kHz WAV · pre-mastering",
         ab_compare: "A/B compare", play_de: "▶ DE", regen: "↻ Regenerate", voice_seed: "Voice Seed",
+        approve: "✓ Mark as OK", approved_by_ear: "Approved (by ear)", approved_toast: "marked as OK ✓",
         not_rendered: "Not rendered yet (step 6)",
         ov_total: "Total quests", ov_validated: "Validated quests", ov_passed: "QA passed",
         ov_problems: "With problems", ov_repaired: "AI-repaired", ov_retries: "Retries", ov_success: "Success rate (QA)",
@@ -938,7 +940,7 @@
       const cur = App.live.state && App.live.state.current;
       if (cur && cur.entry_id === e.entry_id && App.live.effectiveRunning) return "processing";
       const qa = e.qa_result;
-      if (qa) return (qa.passed !== false && qa.cer <= 0.15) ? "pass" : "fail";
+      if (qa) return (qa.passed === true || (qa.passed !== false && qa.cer <= 0.15)) ? "pass" : "fail";
       const hasAudio = e.final_ogg_duration_sec != null || e.final_ogg_path || e.raw_tts_wav;
       return hasAudio ? "unverified" : "pending";
     }
@@ -1406,8 +1408,11 @@
       let qaLine = "";
       if (qa) {
         const match = Math.max(0, Math.min(100, 100 - qa.cer * 100));
-        const ok = qa.passed !== false && qa.cer <= 0.15;
+        const ok = qa.passed === true || (qa.passed !== false && qa.cer <= 0.15);
         const barColor = ok ? "var(--green)" : "var(--red)";
+        const approvedBadge = qa.approved_by_user
+          ? `<span class="badge" style="background:var(--green-soft);color:var(--green);border:1px solid rgba(52,209,123,0.35);">${esc(t("approved_by_ear"))}</span>`
+          : "";
         const attemptsTxt = (qa.attempts || 1) === 1 ? t("attempts_1") : t("attempts_n");
         const aiNote = qa.ai_used
           ? `<span class="badge race" style="background:var(--purple-soft);color:#cf9bff;border-color:var(--purple-border);">${esc(t("ai_repaired_badge"))} (${esc(qa.ai_provider || "AI")})</span>`
@@ -1419,6 +1424,7 @@
           <div class="qa-line">
             <span class="qa-txt ${ok ? "ok" : "bad"}">${ok ? "✓" : "✕"} ${esc(t("qa_match"))} ${match.toFixed(1)}% · ${qa.attempts || 1} ${esc(attemptsTxt)}</span>
             ${aiNote}
+            ${approvedBadge}
             ${reasonChip}
             <div class="matchbar"><i style="width:${match}%;background:${barColor};"></i></div>
           </div>`;
@@ -1489,6 +1495,7 @@
               <button class="btn-mini gold" onclick="playAB('${esc(e.entry_id)}')">${esc(t("ab_compare"))}</button>
               <button class="btn-mini blue" onclick="playOnly('${esc(e.entry_id)}')">${esc(t("play_de"))}</button>
               <button class="btn-mini red" ${App.live.effectiveRunning ? "disabled" : ""} onclick="regenerateEntry('${esc(e.entry_id)}')">${esc(t("regen"))}</button>
+              ${(!ok && qa) ? `<button class="btn-mini" style="color:var(--green);border-color:rgba(52,209,123,0.4);" onclick="approveEntry('${esc(e.entry_id)}')">${esc(t("approve"))}</button>` : ""}
               ${seedFile ? `<a class="btn-mini" href="/audio/seed/${esc(encodeURIComponent(seedFile))}" target="_blank">${esc(t("voice_seed"))}</a>` : ""}
             </div>
           </div>
@@ -1613,6 +1620,20 @@
         toast(`${t("job_start_error")}: ${err.message}`, "err");
       }
       setTimeout(pollLive, 400);
+    }
+
+    async function approveEntry(id) {
+      try {
+        await api("/api/approve_entry", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ entry_id: id }),
+        });
+        toast(`${id}: ${t("approved_toast")}`, "ok");
+        loadPlaylist();
+      } catch (err) {
+        toast(`${t("error")}: ${err.message}`, "err");
+      }
     }
 
     async function regenerateEntry(id) {
