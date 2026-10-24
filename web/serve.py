@@ -22,6 +22,7 @@ import argparse
 import json
 import mimetypes
 import os
+import signal
 import subprocess
 import sys
 import threading
@@ -180,6 +181,8 @@ def _run_background_commands(commands: list, project_root: Path, mode: str, expa
                 text=True,
                 start_new_session=True,
             )
+            with JOB_LOCK:
+                CURRENT_JOB["proc"] = proc
             while proc.poll() is None:
                 time.sleep(0.5)
                 try:
@@ -202,6 +205,7 @@ def _run_background_commands(commands: list, project_root: Path, mode: str, expa
                 break
 
     with JOB_LOCK:
+        CURRENT_JOB["proc"] = None
         CURRENT_JOB["running"] = False
         CURRENT_JOB["finished_at"] = time.strftime("%H:%M:%S")
         CURRENT_JOB["exit_code"] = exit_code
@@ -445,6 +449,26 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
                 settings["api_key"] = str(body["api_key"]).strip()
             ok, models, message = ai_list_models(settings)
             self._send_json({"ok": ok, "models": models, "message": message})
+            return
+
+        if parsed.path == "/api/stop_job":
+            with JOB_LOCK:
+                proc = CURRENT_JOB.get("proc")
+            if proc is None or proc.poll() is not None:
+                self._send_json({"status": "idle", "message": "Kein laufender Job"}, status=409)
+                return
+            try:
+                pgid = os.getpgid(proc.pid)
+                os.killpg(pgid, signal.SIGTERM)
+                time.sleep(1.5)
+                if proc.poll() is None:
+                    os.killpg(pgid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+            except Exception as e:
+                self._send_json({"error": str(e)}, status=500)
+                return
+            self._send_json({"status": "stopping"})
             return
 
         if parsed.path == "/api/start_job":

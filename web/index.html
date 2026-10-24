@@ -554,6 +554,7 @@
           <option value="repair_failed" data-i18n="mode_repair"></option>
         </select>
         <button class="btn gold" id="startJobBtn" onclick="startJob()" data-i18n="start"></button>
+            <button class="btn stop" id="stopBtn" onclick="stopJob()" data-i18n="stop" style="display:none"></button>
         <button class="btn ghost" onclick="toggleConsole()" id="consoleToggleBtn" data-i18n="console"></button>
         <button class="btn ghost" id="consoleCopyBtn" onclick="copyConsole()" data-i18n="console_copy" style="display:none;"></button>
       </div>
@@ -709,7 +710,8 @@
         script: "Script", phonetics: "Phonetik", standard_phonetics: "Standard-Phonetik", direction: "Regie", whisper: "Whisper",
         de_mastered: "DE Lokalisiert", en_original: "EN Original", raw_unmastered: "RAW Ungemastert",
         reference: "Referenz", en_gossip_ref: "EN-Zuordnung geschätzt (nach Länge)", unmastered_sub: "24 kHz WAV · vor Mastering",
-        ab_compare: "A/B vergleichen", play_de: "▶ DE", regen: "↻ Neu generieren", voice_seed: "Voice-Seed",
+        ab_compare: "A/B vergleichen", play_de: "▶ DE", regen: "↻ Neu generieren",
+        stop: "⏹ Stopp", stop_toast: "Job wird gestoppt …", voice_seed: "Voice-Seed",
         approve: "✓ Als OK markieren", approved_by_ear: "Freigegeben (Hörprobe)", approved_toast: "als OK markiert ✓",
         not_rendered: "Noch nicht gerendert (Schritt 6)",
         ov_total: "Gesamt-Quests", ov_validated: "Validierte Quests", ov_passed: "QA bestanden",
@@ -789,7 +791,8 @@
         script: "Script", phonetics: "Phonetics", standard_phonetics: "Standard phonetics", direction: "Direction", whisper: "Whisper",
         de_mastered: "DE Localized", en_original: "EN Original", raw_unmastered: "RAW Unmastered",
         reference: "Reference", en_gossip_ref: "EN match estimated (by length)", unmastered_sub: "24 kHz WAV · pre-mastering",
-        ab_compare: "A/B compare", play_de: "▶ DE", regen: "↻ Regenerate", voice_seed: "Voice Seed",
+        ab_compare: "A/B compare", play_de: "▶ DE", regen: "↻ Regenerate",
+        stop: "⏹ Stop", stop_toast: "Stopping job …", voice_seed: "Voice Seed",
         approve: "✓ Mark as OK", approved_by_ear: "Approved (by ear)", approved_toast: "marked as OK ✓",
         not_rendered: "Not rendered yet (step 6)",
         ov_total: "Total quests", ov_validated: "Validated quests", ov_passed: "QA passed",
@@ -1039,6 +1042,8 @@
         App.live.external = !st.running && liveStateActive(App.live.state);
         App.live.effectiveRunning = App.live.running || App.live.external;
         App.live.job = st;
+        const sb = document.getElementById("stopBtn");
+        if (sb) sb.style.display = App.live.effectiveRunning ? "" : "none";
         renderLive();
         renderStats();
         if (prevRunning !== App.live.effectiveRunning) {
@@ -1620,6 +1625,16 @@
         toast(`${t("job_start_error")}: ${err.message}`, "err");
       }
       setTimeout(pollLive, 400);
+    }
+
+    async function stopJob() {
+      try {
+        await api("/api/stop_job", { method: "POST", headers: { "Content-Type": "application/json" }, body: "{}" });
+        toast(t("stop_toast"), "ok");
+        setTimeout(loadState, 2500);
+      } catch (err) {
+        toast(`${t("error")}: ${err.message}`, "err");
+      }
     }
 
     async function approveEntry(id) {
