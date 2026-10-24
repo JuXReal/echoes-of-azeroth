@@ -11,6 +11,8 @@ Referenz: LiangYuxuan/wow-casc-dbc (MIT) — hier als Python-Port.
 
 import hashlib
 import lzma
+
+import requests
 import struct
 import urllib.request
 import zlib
@@ -503,6 +505,12 @@ class CASCClient:
 
     # ---- Lesezugriff ----
     def read_by_ekey(self, ekey_hex: str, expect_ckey: str = None) -> bytes:
+        try:
+            return self._read_by_ekey_local(ekey_hex, expect_ckey)
+        except FileNotFoundError:
+            return self._read_by_ekey_cdn(ekey_hex, expect_ckey)
+
+    def _read_by_ekey_local(self, ekey_hex: str, expect_ckey: str = None) -> bytes:
         if not self._journal:
             self._load_journal()
         key9 = ekey_hex[:18]
@@ -539,6 +547,47 @@ class CASCClient:
             self._journal.update(parse_journal_index(f.read_bytes()))
         if not self._journal:
             raise FileNotFoundError("Keine lokalen Journal-Indizes (Data/data/*.idx) gefunden")
+
+    # ---- CDN-Fallback (offizielle Blizzard-Daten, wie der Spielclient) ----
+    def _read_by_ekey_cdn(self, ekey_hex: str, expect_ckey: str = None) -> bytes:
+        cache_dir = Path.home() / ".cache" / "echoes-of-azeroth" / "cdn"
+        cache_file = cache_dir / f"{ekey_hex}.blte"
+        blte = None
+        if cache_file.exists():
+            blte = cache_file.read_bytes()
+        else:
+            idx_dir = self.data_dir / "indices"
+            for idx_file in idx_dir.glob("*.index"):
+                entries = parse_split_index(idx_file.read_bytes(), idx_file.stem)
+                if ekey_hex not in entries:
+                    continue
+                size, offset = entries[ekey_hex]
+                archive_key = idx_file.stem  # 16-Byte-Archiv-Schlüssel
+                bi = self._read_build_info()
+                host = next((h for h in bi.get("CDN Hosts", "").split() if h), "level3.blizzard.com")
+                cdn_path = bi.get("CDN Path", "tpr/wow")
+                url = (f"https://{host}/{cdn_path}/data/{archive_key[:2]}/{archive_key[2:4]}/{archive_key}")
+                print(f"  Lade vom offiziellen CDN: {url.split('/')[-1]}… ({size} Bytes)")
+                resp = requests.get(
+                    url,
+                    headers={"Range": f"bytes={offset}-{offset + size - 1}",
+                             "User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"},
+                    timeout=60,
+                )
+                resp.raise_for_status()
+                blte = resp.content
+                assert len(blte) == size, f"CDN-Range falsch: {len(blte)} != {size}"
+                cache_dir.mkdir(parents=True, exist_ok=True)
+                cache_file.write_bytes(blte)
+                break
+            if blte is None:
+                raise FileNotFoundError(f"EKey weder lokal noch im CDN-Index: {ekey_hex[:16]}…")
+        buf, missing = decode_blte(blte, ekey_hex, self.keys, allow_missing_keys=True)
+        if missing:
+            print(f"  Hinweis: {len(missing)} verschlüsselte Blöcke ohne Key: {missing[0]}…")
+        if expect_ckey and not missing and hashlib.md5(buf).hexdigest() != expect_ckey:
+            raise ValueError(f"CKey-Mismatch für {ekey_hex[:16]}…")
+        return buf
 
     def _lookup_ekey(self, ekey_hex: str) -> Tuple[int, int]:
         if not self._journal:

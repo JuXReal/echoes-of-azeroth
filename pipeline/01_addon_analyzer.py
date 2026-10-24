@@ -469,15 +469,14 @@ def parse_saved_variables(
             gossip_matches = re.findall(r'\["([0-9a-f]{32}_[A-Za-z]+)"\]\s*=\s*"((?:[^"\\]|\\.)*)"', block)
             en_gossips = sorted(vo_dir.glob(f"{npc_id}_Gossip_*.ogg"))
             if gossip_matches and en_gossips:
-                # Pick longest English gossip file of that NPC as voice reference
-                best_en_ogg = max(en_gossips, key=lambda p: durations.get(p.name, 0.0))
+                g_entries = []
                 for g_hash_gender, raw_g_text in gossip_matches:
                     raw_g_text = raw_g_text.replace('\\"', '"')
                     if not raw_g_text.strip():
                         continue
                     target_g_filename = f"{npc_id}_Gossip_{g_hash_gender}.ogg"
                     spoken_text, stage_cues = strip_stage_directions_and_placeholders(raw_g_text)
-                    entries.append({
+                    g_entries.append({
                         "entry_id": f"{npc_id}_Gossip_{g_hash_gender[:8]}",
                         "kind": "gossip",
                         "quest_id": npc_id,
@@ -492,14 +491,22 @@ def parse_saved_variables(
                         "model_file_id": model_id,
                         "voice_archetype": archetype,
                         "role_description": role_desc,
-                        "source_ogg_filename": best_en_ogg.name,
-                        "source_ogg_path": str(best_en_ogg),
-                        "source_duration_sec": durations.get(best_en_ogg.name, 0.0),
                         "target_ogg_filename": target_g_filename,
                         "raw_de_text": raw_g_text,
                         "clean_de_text": spoken_text,
                         "stage_directions": stage_cues,
                     })
+                # EN-Referenz je Zeile zuordnen: Übersetzungen erhalten die
+                # Längen-Rangfolge, also kürzeste EN-Datei ↔ kürzester DE-Text
+                en_sorted = sorted(en_gossips, key=lambda p: durations.get(p.name, 0.0))
+                g_sorted = sorted(g_entries, key=lambda e: len(e["clean_de_text"]))
+                en_padded = (en_sorted * (len(g_sorted) // max(1, len(en_sorted)) + 1))[:len(g_sorted)]
+                for e, enf in zip(g_sorted, en_padded):
+                    e["source_ogg_filename"] = enf.name
+                    e["source_ogg_path"] = str(enf)
+                    e["source_duration_sec"] = durations.get(enf.name, 0.0)
+                    e["en_ref_match"] = "length_rank"
+                entries.extend(g_entries)
 
     return entries
 

@@ -541,14 +541,10 @@
     <section class="panel">
       <div class="panel-title" data-i18n="panel_launch"></div>
       <div class="launch-row">
-        <select id="launchExpansion">
-          <option value="Midnight">Midnight (12.0)</option>
-          <option value="The_War_Within">The War Within (11.0)</option>
-          <option value="Dragonflight">Dragonflight (10.0)</option>
-          <option value="Battle_for_Azeroth">Battle for Azeroth (8.0)</option>
-          <option value="Wrath_of_the_Lich_King">Wrath of the Lich King (3.0)</option>
-          <option value="Vanilla">Vanilla / Classic (1.0)</option>
-        </select>
+        <div style="display:flex;flex-direction:column;gap:0.4rem;flex:1;min-width:300px;">
+          <div class="key-hint" data-i18n="exp_select"></div>
+          <div class="status-chips" id="expansionChips"></div>
+        </div>
         <select id="launchMode" style="flex:1;min-width:280px;">
           <option value="audit_100" data-i18n="mode_audit100"></option>
           <option value="audit_full" data-i18n="mode_auditfull"></option>
@@ -672,6 +668,8 @@
         panel_aisettings: "KI-Einstellungen · Repair",
         panel_activity: "Letzte Aktivität",
         panel_expansions: "Expansionen",
+        exp_select: "Zu lokalisierende Addons auswählen (mehrfach möglich):",
+        exp_none_selected: "Bitte mindestens ein Addon auswählen.",
         exp_never: "Noch keine Expansion gelaufen.",
         exp_finished: "fertig", exp_stopped: "pausiert",
         ai_inactive: "Inaktiv", ai_none_configured: "(keine externe KI konfiguriert)", ai_ready: "✦ bereit", ai_off: "◌ aus",
@@ -702,7 +700,7 @@
         processing_now: "wird gerade verarbeitet …", audio_no_qa: "Audio vorhanden — QA steht aus", not_generated: "noch nicht generiert",
         script: "Script", phonetics: "Phonetik", standard_phonetics: "Standard-Phonetik", direction: "Regie", whisper: "Whisper",
         de_mastered: "DE Lokalisiert", en_original: "EN Original", raw_unmastered: "RAW Ungemastert",
-        reference: "Referenz", en_gossip_ref: "geteilte NPC-Referenz (längste EN-Zeile)", unmastered_sub: "24 kHz WAV · vor Mastering",
+        reference: "Referenz", en_gossip_ref: "EN-Zuordnung geschätzt (nach Länge)", unmastered_sub: "24 kHz WAV · vor Mastering",
         ab_compare: "A/B vergleichen", play_de: "▶ DE", regen: "↻ Neu generieren", voice_seed: "Voice-Seed",
         not_rendered: "Noch nicht gerendert (Schritt 6)",
         ov_total: "Gesamt-Quests", ov_validated: "Validierte Quests", ov_passed: "QA bestanden",
@@ -747,6 +745,8 @@
         panel_aisettings: "AI Settings · Repair",
         panel_activity: "Recent Activity",
         panel_expansions: "Expansions",
+        exp_select: "Select addons to localize (multiple allowed):",
+        exp_none_selected: "Please select at least one addon.",
         exp_never: "No expansion run yet.",
         exp_finished: "done", exp_stopped: "paused",
         ai_inactive: "Inactive", ai_none_configured: "(no external AI configured)", ai_ready: "✦ ready", ai_off: "◌ off",
@@ -777,7 +777,7 @@
         processing_now: "being processed right now …", audio_no_qa: "Audio exists — QA pending", not_generated: "not generated yet",
         script: "Script", phonetics: "Phonetics", standard_phonetics: "Standard phonetics", direction: "Direction", whisper: "Whisper",
         de_mastered: "DE Localized", en_original: "EN Original", raw_unmastered: "RAW Unmastered",
-        reference: "Reference", en_gossip_ref: "shared NPC reference (longest EN line)", unmastered_sub: "24 kHz WAV · pre-mastering",
+        reference: "Reference", en_gossip_ref: "EN match estimated (by length)", unmastered_sub: "24 kHz WAV · pre-mastering",
         ab_compare: "A/B compare", play_de: "▶ DE", regen: "↻ Regenerate", voice_seed: "Voice Seed",
         not_rendered: "Not rendered yet (step 6)",
         ov_total: "Total quests", ov_validated: "Validated quests", ov_passed: "QA passed",
@@ -830,6 +830,8 @@
       visible: 60,
       modelPricing: {},
       statistics: null,
+      expansions: [],
+      selectedExpansions: new Set(),
       liveAudio: null,
       filters: { q: "", speaker: "all", race: "all", status: "all", sort: "file" },
     };
@@ -1509,17 +1511,60 @@
     }
 
     /* ---------- jobs ---------- */
+    async function loadExpansions() {
+      try {
+        const data = await api("/api/expansions");
+        App.expansions = data.expansions || [];
+        if (!App.expansions.length) {
+          App.expansions = [
+            { id: "Midnight", name: "Midnight" },
+            { id: "The_War_Within", name: "The War Within" },
+            { id: "Dragonflight", name: "Dragonflight" },
+            { id: "Battle_for_Azeroth", name: "Battle for Azeroth" },
+            { id: "Wrath_of_the_Lich_King", name: "Wrath of the Lich King" },
+            { id: "Vanilla", name: "Vanilla" },
+          ];
+        }
+        // Standard: alle installierten auswählen
+        App.expansions.forEach((e) => App.selectedExpansions.add(e.id));
+        renderExpansionChips();
+      } catch (e) { /* Server älter — Standardliste */ }
+    }
+
+    function renderExpansionChips() {
+      const host = $("expansionChips");
+      host.innerHTML = App.expansions.map((e) => {
+        const on = App.selectedExpansions.has(e.id);
+        return `<button class="chip-filter ${on ? "on" : ""}" data-exp="${esc(e.id)}">${esc(e.name)}</button>`;
+      }).join("");
+      host.querySelectorAll(".chip-filter").forEach((b) => {
+        b.onclick = () => {
+          const id = b.dataset.exp;
+          if (App.selectedExpansions.has(id)) {
+            App.selectedExpansions.delete(id);
+          } else {
+            App.selectedExpansions.add(id);
+          }
+          renderExpansionChips();
+        };
+      });
+    }
+
     async function startJob() {
-      const expansion = $("launchExpansion").value;
       const mode = $("launchMode").value;
+      const expansions = [...App.selectedExpansions];
+      if (!expansions.length) {
+        toast(t("exp_none_selected"), "err");
+        return;
+      }
       $("startJobBtn").disabled = true;
       try {
         await api("/api/start_job", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ expansion, mode }),
+          body: JSON.stringify({ expansions, mode }),
         });
-        toast(`${t("job_started")}: ${mode}`, "gold");
+        toast(`${t("job_started")}: ${mode} (${expansions.length})`, "gold");
         showConsole();
       } catch (err) {
         toast(`${t("job_start_error")}: ${err.message}`, "err");
@@ -1812,7 +1857,7 @@
     (async function boot() {
       applyI18n();
       await checkServerVersion();
-      await Promise.all([loadSettings(), loadAudit(), loadPlaylist()]);
+      await Promise.all([loadSettings(), loadAudit(), loadPlaylist(), loadExpansions()]);
       applyI18n();
       await pollLive();
       setInterval(pollLive, 1200);
