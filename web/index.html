@@ -1372,7 +1372,7 @@
       $("statusChips").innerHTML = defs.map(([k, l]) =>
         `<button class="chip-filter ${App.filters.status === k ? "on" : ""}" data-status="${k}">${esc(l)} <span class="cnt">${counts[k]}</span></button>`
       ).join("");
-      document.querySelectorAll(".chip-filter").forEach((b) => {
+      $("statusChips").querySelectorAll(".chip-filter").forEach((b) => {
         b.onclick = () => { App.filters.status = b.dataset.status; renderStatusChips(); renderGrid(); };
       });
     }
