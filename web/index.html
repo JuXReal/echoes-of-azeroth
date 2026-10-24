@@ -998,6 +998,8 @@
     function liveStateActive(state) {
       if (!state || !state.started_at) return false;
       if (state.finished_at) return false;
+      // Letzter Schritt abgeschlossen -> Job ist fertig, auch ohne finished_at
+      if (state.step && state.step.done) return false;
       const age = Date.now() / 1000 - (state.updated_at || 0);
       return age < 180; // noch aktive Schreiber (auch CLI-gestartete Jobs)
     }
@@ -1110,7 +1112,7 @@
         badgeText.textContent = App.live.external
           ? t("running_ext")
           : `${t("running")} · ${(App.live.job && App.live.job.mode) || "Job"}`;
-      } else if (st.finished_at && st.step) {
+      } else if ((st.finished_at && st.step) || (st.step && st.step.done)) {
         badge.className = st.ok === false ? "status-badge error" : "status-badge done";
         badgeText.textContent = st.ok === false ? t("error") : t("done");
         if (App.jobWasRunning) {
