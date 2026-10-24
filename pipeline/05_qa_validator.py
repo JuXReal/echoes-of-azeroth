@@ -252,16 +252,6 @@ def evaluate_audio_with_whisper(
     # count as 2 word errors in naive WER despite 99% phonetic accuracy).
     effective_error = round(0.55 * cer_val + 0.45 * wer_val, 4)
 
-    is_halluc, reason = detect_hallucinations(norm_trans_full, norm_target)
-    # Whisper-Füllwörter ("ich glaube", "Punkt", "ein Wurzelhüter") werden als
-    # Bigram-/Punkt-"Halluzinationen" erkannt, obwohl das Audio sauber ist.
-    # Nur als Fehler werten, wenn das starke Signale sind (Ende-Fortsetzung,
-    # Babbel, Abschneiden, leeres Transkript) ODER die Fehlerquote schlecht ist.
-    strong_hallucination = reason.startswith(("trailing", "babble", "truncated", "empty"))
-    if is_halluc and not strong_hallucination:
-        if effective_error <= threshold:
-            is_halluc = False
-            reason = "clean"
     return {
         "transcript": transcript,
         "wer": round(wer_val, 4),
@@ -430,7 +420,13 @@ def main():
 
         for attempt in range(1, max_retries + 2):
             eval_res = evaluate_audio_with_whisper(whisper, wav_path, target_text, raw_de_text)
-            passed = (eval_res["effective_error"] <= threshold) and (not eval_res["hallucination"])
+            # Whisper-Füllwörter ("ich glaube", "Punkt") werden als Bigram-/Punkt-
+            # "Halluzinationen" erkannt, obwohl das Audio sauber ist. Diese Flags
+            # zählen nur als Fehler, wenn die Fehlerquote wirklich schlecht ist
+            # oder ein starkes Signal vorliegt (Ende-Fortsetzung, Babbel,
+            # Abschneiden, leeres Transkript).
+            strong_halluc = eval_res["hallucination_reason"].startswith(("trailing", "babble", "truncated", "empty"))
+            passed = (eval_res["effective_error"] <= threshold) and (not eval_res["hallucination"] or not strong_halluc)
             eval_res["passed"] = passed
             eval_res["attempt"] = attempt
             attempt_history.append(eval_res)
