@@ -653,7 +653,7 @@
         brand_sub: "XTTS-v2 · Faster-Whisper QA · EBU R128 (−16 LUFS) · optionale KI-Reparatur",
         ethics: "Bitte lade generierte Sprachpakete nicht eigenmächtig auf CurseForge/Wago hoch — respektiere die Arbeit von <b>Tuubby</b> &amp; dem Chatty-Little-NPC-Team. Die finale Qualitätskontrolle im Studio liegt bei dir.",
         stat_quests: "Quests", stat_problems: "Probleme", stat_ok: "QA OK", stat_ai: "AI-Calls",
-        idle: "Idle", running: "Läuft", done: "Fertig", error: "Fehler",
+        idle: "Idle", running: "Läuft", running_ext: "Läuft (extern gestartet)", done: "Fertig", error: "Fehler",
         ready: "Bereit", step_of: "Schritt", eta: "ETA",
         no_job: "Kein Pipeline-Job aktiv. Starte eine Aktion im Launchpad, um Live-Fortschritt zu sehen.",
         prepping: "Schritt wird vorbereitet …",
@@ -725,7 +725,7 @@
         brand_sub: "XTTS-v2 · Faster-Whisper QA · EBU R128 (−16 LUFS) · optional AI repair",
         ethics: "Please do not upload generated voice packs to CurseForge/Wago on your own — respect the work of <b>Tuubby</b> &amp; the Chatty Little NPC team. Final quality control in the studio is up to you.",
         stat_quests: "Quests", stat_problems: "Problems", stat_ok: "QA OK", stat_ai: "AI Calls",
-        idle: "Idle", running: "Running", done: "Done", error: "Error",
+        idle: "Idle", running: "Running", running_ext: "Running (external)", done: "Done", error: "Error",
         ready: "Ready", step_of: "Step", eta: "ETA",
         no_job: "No pipeline job active. Start an action in the launchpad to see live progress.",
         prepping: "Preparing step …",
@@ -901,7 +901,7 @@
     /* ---------- entry status ---------- */
     function entryStatus(e) {
       const cur = App.live.state && App.live.state.current;
-      if (cur && cur.entry_id === e.entry_id && App.live.running) return "processing";
+      if (cur && cur.entry_id === e.entry_id && App.live.effectiveRunning) return "processing";
       const qa = e.qa_result;
       if (qa) return (qa.passed !== false && qa.cer <= 0.15) ? "pass" : "fail";
       const hasAudio = e.final_ogg_duration_sec != null || e.final_ogg_path || e.raw_tts_wav;
@@ -976,6 +976,13 @@
     }
 
     /* ---------- live state polling ---------- */
+    function liveStateActive(state) {
+      if (!state || !state.started_at) return false;
+      if (state.finished_at) return false;
+      const age = Date.now() / 1000 - (state.updated_at || 0);
+      return age < 180; // noch aktive Schreiber (auch CLI-gestartete Jobs)
+    }
+
     async function pollLive() {
       if (App.serverMismatchShown) {
         if (Date.now() - (App.lastVerCheck || 0) > 20000) {
@@ -989,10 +996,12 @@
         const prevRunning = App.live.running;
         App.live.state = st.state || null;
         App.live.running = !!st.running;
+        App.live.external = !st.running && liveStateActive(App.live.state);
+        App.live.effectiveRunning = App.live.running || App.live.external;
         App.live.job = st;
         renderLive();
         renderStats();
-        if (prevRunning !== App.live.running) {
+        if (prevRunning !== App.live.effectiveRunning) {
           loadPlaylist();
           loadAudit();
         }
@@ -1027,11 +1036,13 @@
       const st = App.live.state || {};
       const badge = $("liveStatusBadge");
       const badgeText = $("statusBadgeText");
-      $("startJobBtn").disabled = App.live.running;
+      $("startJobBtn").disabled = App.live.effectiveRunning;
 
-      if (App.live.running) {
+      if (App.live.effectiveRunning) {
         badge.className = "status-badge running";
-        badgeText.textContent = `${t("running")} · ${(App.live.job && App.live.job.mode) || "Job"}`;
+        badgeText.textContent = App.live.external
+          ? t("running_ext")
+          : `${t("running")} · ${(App.live.job && App.live.job.mode) || "Job"}`;
       } else if (st.finished_at && st.step) {
         badge.className = st.ok === false ? "status-badge error" : "status-badge done";
         badgeText.textContent = st.ok === false ? t("error") : t("done");
@@ -1042,7 +1053,7 @@
         badge.className = "status-badge";
         badgeText.textContent = t("idle");
       }
-      App.jobWasRunning = App.live.running;
+      App.jobWasRunning = App.live.effectiveRunning;
 
       // step chips
       const totalSteps = st.total_steps || 7;
@@ -1106,8 +1117,8 @@
         $("liveIdleNote").style.display = "none";
       } else {
         curCard.style.display = "none";
-        $("liveIdleNote").style.display = App.live.running ? "none" : "";
-        $("liveIdleNote").textContent = App.live.running ? t("prepping") : t("no_job");
+        $("liveIdleNote").style.display = App.live.effectiveRunning ? "none" : "";
+        $("liveIdleNote").textContent = App.live.effectiveRunning ? t("prepping") : t("no_job");
       }
 
       // kv grid
@@ -1183,7 +1194,7 @@
       const liveSt = App.live.state || {};
       const liveC = liveSt.counts || {};
       const withQa = es.filter((e) => e.qa_result);
-      let liveQaActive = App.live.running && liveSt.step && liveSt.step.key === "qa" && liveC.total > 0;
+      let liveQaActive = App.live.effectiveRunning && liveSt.step && liveSt.step.key === "qa" && liveC.total > 0;
       if (liveQaActive && withQa.length > (liveC.processed || 0)) liveQaActive = false;
 
       let total = totalAll;
@@ -1274,7 +1285,7 @@
       const meta = STATUS_META[st] || STATUS_META.pending;
       const qa = e.qa_result || null;
       const liveCur = App.live.state && App.live.state.current;
-      const isLive = App.live.running && liveCur && liveCur.entry_id === e.entry_id;
+      const isLive = App.live.effectiveRunning && liveCur && liveCur.entry_id === e.entry_id;
 
       // QA bar
       let qaLine = "";
@@ -1360,7 +1371,7 @@
             <div class="card-actions">
               <button class="btn-mini gold" onclick="playAB('${esc(e.entry_id)}')">${esc(t("ab_compare"))}</button>
               <button class="btn-mini blue" onclick="playOnly('${esc(e.entry_id)}')">${esc(t("play_de"))}</button>
-              <button class="btn-mini red" ${App.live.running ? "disabled" : ""} onclick="regenerateEntry('${esc(e.entry_id)}')">${esc(t("regen"))}</button>
+              <button class="btn-mini red" ${App.live.effectiveRunning ? "disabled" : ""} onclick="regenerateEntry('${esc(e.entry_id)}')">${esc(t("regen"))}</button>
               ${seedFile ? `<a class="btn-mini" href="/audio/seed/${esc(encodeURIComponent(seedFile))}" target="_blank">${esc(t("voice_seed"))}</a>` : ""}
             </div>
           </div>
@@ -1425,7 +1436,7 @@
     }
 
     async function regenerateEntry(id) {
-      if (App.live.running) { toast(t("job_running_busy"), "err"); return; }
+      if (App.live.effectiveRunning) { toast(t("job_running_busy"), "err"); return; }
       try {
         await api("/api/regenerate_entry", {
           method: "POST",
@@ -1686,7 +1697,7 @@
       await pollLive();
       setInterval(pollLive, 1200);
       setInterval(loadAudit, 15000);
-      setInterval(() => { if (App.live.running) loadPlaylist(); }, 12000);
+      setInterval(() => { if (App.live.effectiveRunning) loadPlaylist(); }, 12000);
     })();
   </script>
 </body>
