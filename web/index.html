@@ -828,6 +828,7 @@
       settings: null,
       visible: 60,
       modelPricing: {},
+      statistics: null,
       liveAudio: null,
       filters: { q: "", speaker: "all", race: "all", status: "all", sort: "file" },
     };
@@ -940,6 +941,7 @@
       try {
         const data = await api("/api/playlist");
         App.entries = data.entries || [];
+        App.statistics = data.statistics || null;
         const spk = $("speakerFilter");
         const curSpk = spk.value;
         spk.innerHTML = `<option value="all">${esc(t("all_speakers"))}</option>`;
@@ -1271,7 +1273,10 @@
     function renderStats() {
       const es = App.entries;
       const totalAll = es.length;
-      $("statTotal").textContent = totalAll || "—";
+      const enTotal = (App.statistics && App.statistics.quest_en_files) || (App.statistics && App.statistics.total_en_files) || 0;
+      $("statTotal").textContent = totalAll
+        ? (enTotal ? `${totalAll}/${enTotal}` : String(totalAll))
+        : "—";
 
       const liveSt = App.live.state || {};
       const liveC = liveSt.counts || {};
@@ -1305,6 +1310,7 @@
       const okPct = withQa.length ? ((passed / withQa.length) * 100) : 0;
       $("overviewRows").innerHTML = `
         <div class="ov-row"><span class="l">${esc(t("ov_total"))}</span><span class="v">${totalAll || "—"}</span></div>
+        ${enTotal ? `<div class="ov-row"><span class="l">EN Quest-Dateien</span><span class="v">${enTotal}</span></div>` : ""}
         <div class="ov-row"><span class="l">${esc(t("ov_validated"))}</span><span class="v">${liveQaActive ? `${(liveC.processed || 0)} / ${total}` : withQa.length}</span></div>
         <div class="ov-row"><span class="l">${esc(t("ov_passed"))}</span><span class="v" style="color:var(--green)">${passed}</span></div>
         <div class="ov-row"><span class="l">${esc(t("ov_problems"))}</span><span class="v" style="color:${problems ? "var(--red)" : "var(--green)"}">${problems}${total ? ` (${pct}%)` : ""}</span></div>

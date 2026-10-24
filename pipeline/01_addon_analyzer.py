@@ -591,8 +591,18 @@ def scrape_missing_pack_quests(
         ]
         if missing_de:
             console.print(f"[magenta]• Übersetze {len(missing_de)} Quests ohne deutschen Text via KI ({ai_settings['provider']})...[/magenta]")
+            begin_step("analyze", total=len(missing_de))
             for idx, qid in enumerate(missing_de, 1):
                 qid_str = str(qid)
+                update_current({
+                    "entry_id": f"translate:{qid}",
+                    "npc_name": "DeepSeek",
+                    "quest_title_de": f"Quest #{qid}",
+                    "phase": "Übersetzung",
+                    "status": "translating",
+                    "cer": None,
+                })
+                increment(processed=1)
                 if qid_str not in trans_cache:
                     en = en_cache.get(qid_str)
                     if en is None:
