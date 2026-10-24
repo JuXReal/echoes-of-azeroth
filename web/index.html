@@ -1153,7 +1153,8 @@
       // Fallback nur, wenn die Live-Zähler wirklich hinterherhinken und die
       // Playlist-Zahl ins Gesamtbild passt (nicht bei Resume-Läufen, wo der
       // Katalog mehr validierte Einträge enthält als der Lauf abarbeiten muss).
-      if (st.step && st.step.key === "qa" && qaCount > processed && (!total || qaCount <= total)) {
+      const useQaFallback = st.step && st.step.key === "qa" && qaCount > processed && (!total || qaCount <= total);
+      if (useQaFallback) {
         processed = qaCount;
         if (!total) total = App.entries.length;
       }
@@ -1167,7 +1168,7 @@
       if (App.lastEta && displayEta != null) {
         displayEta = Math.max(0, App.lastEta.value - Math.floor((Date.now() - App.lastEta.at) / 1000));
       }
-      $("liveEta").textContent = qaCount > (counts.processed || 0) && st.step && st.step.key === "qa" ? "—" : fmtEta(displayEta);
+      $("liveEta").textContent = useQaFallback ? "—" : fmtEta(displayEta);
       $("liveStepLabel").textContent = st.step
         ? `${t("step_of")} ${st.step.index}/${totalSteps} · ${esc(st.step.label || stepLabels[st.step.index] || "")}${st.step.done ? " ✓" : ""}`
         : t("ready");
