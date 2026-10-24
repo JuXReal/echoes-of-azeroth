@@ -380,7 +380,10 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
         if parsed.path == "/api/start_job":
             length = int(self.headers.get("Content-Length", "0"))
             body = json.loads(self.rfile.read(length).decode("utf-8")) if length > 0 else {}
-            expansion = body.get("expansion", "Midnight")
+            expansions = body.get("expansions") or [body.get("expansion", "Midnight")]
+            if isinstance(expansions, str):
+                expansions = [expansions]
+            expansions = [str(e) for e in expansions if e]
             mode = body.get("mode", "audit_100")
 
             with JOB_LOCK:
@@ -392,41 +395,46 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
             if not Path(py).exists():
                 py = sys.executable
 
-            if mode == "audit_100":
-                cmds = [[py, "pipeline/07_independent_audit_100.py", "--sample-size", "100"]]
-            elif mode == "audit_full":
-                cmds = [[py, "pipeline/07_independent_audit_100.py", "--sample-size", "0"]]
-            elif mode == "pilot_20":
-                cmds = [
-                    [py, "pipeline/01_addon_analyzer.py", "--expansion", expansion, "--limit", "20"],
-                    [py, "pipeline/02_voice_extractor.py"],
-                    [py, "pipeline/03_script_agent.py"],
-                    [py, "pipeline/04_tts_generator.py"],
-                    [py, "pipeline/05_qa_validator.py"],
-                    [py, "pipeline/06_audio_fx.py", "--install-to-wow", "--skip-audit"],
-                    [py, "pipeline/07_independent_audit_100.py", "--sample-size", "100"],
-                ]
-            elif mode == "full_expansion":
-                cmds = [
-                    [py, "pipeline/01_addon_analyzer.py", "--expansion", expansion, "--limit", "0", "--include-gossip", "--scrape-all-quests"],
-                    [py, "pipeline/02_voice_extractor.py"],
-                    [py, "pipeline/03_script_agent.py"],
-                    [py, "pipeline/04_tts_generator.py"],
-                    [py, "pipeline/05_qa_validator.py"],
-                    [py, "pipeline/06_audio_fx.py", "--install-to-wow", "--skip-audit"],
-                    [py, "pipeline/07_independent_audit_100.py", "--sample-size", "100"],
-                ]
+            cmds = []
+            if mode in ("audit_100", "audit_full"):
+                # Audits beziehen sich auf den Katalog der ERSTEN Expansion
+                sample = "100" if mode == "audit_100" else "0"
+                cmds = [[py, "pipeline/07_independent_audit_100.py", "--sample-size", sample]]
+                mode_label = f"{mode} ({expansions[0]})"
             else:
-                self._send_json({"error": f"Unknown mode: {mode}"}, status=400)
-                return
+                for expansion in expansions:
+                    if mode == "pilot_20":
+                        cmds.extend([
+                            [py, "pipeline/01_addon_analyzer.py", "--expansion", expansion, "--limit", "20"],
+                            [py, "pipeline/02_voice_extractor.py"],
+                            [py, "pipeline/03_script_agent.py"],
+                            [py, "pipeline/04_tts_generator.py"],
+                            [py, "pipeline/05_qa_validator.py"],
+                            [py, "pipeline/06_audio_fx.py", "--install-to-wow", "--skip-audit"],
+                            [py, "pipeline/07_independent_audit_100.py", "--sample-size", "100"],
+                        ])
+                    elif mode == "full_expansion":
+                        cmds.extend([
+                            [py, "pipeline/01_addon_analyzer.py", "--expansion", expansion, "--limit", "0", "--include-gossip", "--scrape-all-quests"],
+                            [py, "pipeline/02_voice_extractor.py"],
+                            [py, "pipeline/03_script_agent.py"],
+                            [py, "pipeline/04_tts_generator.py"],
+                            [py, "pipeline/05_qa_validator.py"],
+                            [py, "pipeline/06_audio_fx.py", "--install-to-wow", "--skip-audit"],
+                            [py, "pipeline/07_independent_audit_100.py", "--sample-size", "100"],
+                        ])
+                    else:
+                        self._send_json({"error": f"Unknown mode: {mode}"}, status=400)
+                        return
+                mode_label = f"{mode} ({len(expansions)} Addons)"
 
             t = threading.Thread(
                 target=_run_background_commands,
-                args=(cmds, self.project_root, mode, expansion),
+                args=(cmds, self.project_root, mode_label, ", ".join(expansions)),
                 daemon=True,
             )
             t.start()
-            self._send_json({"status": "started", "mode": mode, "expansion": expansion})
+            self._send_json({"status": "started", "mode": mode, "expansions": expansions})
             return
 
         self.send_error(404, "Not found")
@@ -472,6 +480,28 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
             PLAYLIST_CACHE["mtime_ns"] = mtime_ns
             PLAYLIST_CACHE["data"] = data
             self._send_json(data)
+            return
+
+        if path == "/api/expansions":
+            packs = []
+            wow_addons = Path(os.getenv("WOW_ADDONS_DIR") or self.cfg["paths"]["wow_addons_dir"])
+            try:
+                for d in sorted(wow_addons.iterdir()):
+                    n = d.name
+                    if not (n.startswith("ChattyLittleNpc_") and n.endswith("_voiceovers")):
+                        continue
+                    mid = n[len("ChattyLittleNpc_"):-len("_voiceovers")]
+                    # Lokalisierte Pakete (z. B. Midnight_deDE) ausschließen
+                    if re.match(r"^[a-z]{2}[A-Z]{2}$", mid.split("_")[-1]):
+                        continue
+                    packs.append({"id": mid, "name": mid.replace("_", " ")})
+            except Exception:
+                packs = []
+            if not packs:
+                # Fallback: Standard-Liste
+                for e in ("Midnight", "The_War_Within", "Dragonflight", "Battle_for_Azeroth", "Wrath_of_the_Lich_King", "Vanilla"):
+                    packs.append({"id": e, "name": e.replace("_", " ")})
+            self._send_json({"expansions": packs})
             return
 
         if path == "/api/audit":
