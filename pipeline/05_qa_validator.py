@@ -253,6 +253,15 @@ def evaluate_audio_with_whisper(
     effective_error = round(0.55 * cer_val + 0.45 * wer_val, 4)
 
     is_halluc, reason = detect_hallucinations(norm_trans_full, norm_target)
+    # Whisper-Füllwörter ("ich glaube", "Punkt", "ein Wurzelhüter") werden als
+    # Bigram-/Punkt-"Halluzinationen" erkannt, obwohl das Audio sauber ist.
+    # Nur als Fehler werten, wenn das starke Signale sind (Ende-Fortsetzung,
+    # Babbel, Abschneiden, leeres Transkript) ODER die Fehlerquote schlecht ist.
+    strong_hallucination = reason.startswith(("trailing", "babble", "truncated", "empty"))
+    if is_halluc and not strong_hallucination:
+        if effective_error <= threshold:
+            is_halluc = False
+            reason = "clean"
     return {
         "transcript": transcript,
         "wer": round(wer_val, 4),
