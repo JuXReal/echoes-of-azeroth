@@ -279,7 +279,7 @@ def parse_voiceovers_list(vo_list_path: Path) -> Tuple[List[str], Dict[str, floa
 # ==============================================================================
 # Wowhead DE Full Quest Scraper (Title + Desc + Prog + Comp + Starter/Ender NPC)
 # ==============================================================================
-def sanitize_quest_title(title: str) -> str:
+def sanitize_wowhead_text(title: str) -> str:
     """Entfernt Wowhead-Markup/JSON-Reste aus Quest-Titeln."""
     t = re.sub(r"\s*\|.*$", "", title)          # "Titel | .","date":..." -> "Titel"
     t = re.sub(r'\.\s*"date".*$', "", t)        # eingebettete Kommentar-JSON-Reste
@@ -317,16 +317,16 @@ def fetch_wowhead_de_quest_full(quest_id: int) -> Dict:
 
         h1 = soup.find("h1", class_="heading-size-1")
         if h1 and h1.text:
-            result["title"] = sanitize_quest_title(h1.text)
+            result["title"] = sanitize_wowhead_text(h1.text)
 
         # Extract Starter & Ender NPC from Wowhead markup (`[url=/de/npc=258019/magister-umbric]Magister Umbric[/url]`)
         npc_links = re.findall(r"npc=(\d+)(?:\\?/[^\]\">]+)?[\]\">]([^\[<]+)", html)
         if npc_links:
             result["start_npc_id"] = int(npc_links[0][0])
-            result["start_npc_name"] = npc_links[0][1].strip()
+            result["start_npc_name"] = sanitize_wowhead_text(npc_links[0][1])
             if len(npc_links) >= 2:
                 result["end_npc_id"] = int(npc_links[1][0])
-                result["end_npc_name"] = npc_links[1][1].strip()
+                result["end_npc_name"] = sanitize_wowhead_text(npc_links[1][1])
             else:
                 result["end_npc_id"] = result["start_npc_id"]
                 result["end_npc_name"] = result["start_npc_name"]
@@ -618,7 +618,7 @@ def fetch_wowhead_de_quest_title(quest_id: int, cache: Dict[int, str]) -> str:
             soup = BeautifulSoup(resp.text, "lxml")
             h1 = soup.find("h1", class_="heading-size-1")
             if h1 and h1.text:
-                title = sanitize_quest_title(h1.text)
+                title = sanitize_wowhead_text(h1.text)
                 cache[quest_id] = title
                 return title
     except Exception:

@@ -910,6 +910,13 @@
       applyI18n();
     }
 
+    function cleanWowhead(str) {
+      let t = String(str ?? "");
+      const cut = t.search(/\s*\|\s*|\.\s*"date"|"\s*date|,\s*"date/);
+      if (cut > 0) t = t.slice(0, cut);
+      return t.trim();
+    }
+
     /* ---------- entry status ---------- */
     function entryStatus(e) {
       const cur = App.live.state && App.live.state.current;
@@ -1152,8 +1159,8 @@
       if (cur && cur.entry_id) {
         curCard.style.display = "";
         $("curId").textContent = cur.entry_id;
-        $("curTitle").textContent = cur.quest_title_de || cur.entry_id;
-        $("curNpc").textContent = `${t("npc")}: ${cur.npc_name || "—"}${cur.phase ? ` · ${cur.phase}` : ""}`;
+        $("curTitle").textContent = cleanWowhead(cur.quest_title_de) || cur.entry_id;
+        $("curNpc").textContent = `${t("npc")}: ${cleanWowhead(cur.npc_name) || "—"}${cur.phase ? ` · ${cur.phase}` : ""}`;
         $("curExpansion").textContent = curExp ? curExp.replace(/_/g, " ") : "";
         let chipCls = "validating";
         let chipLabel = t("validating");
@@ -1278,8 +1285,9 @@
       const cerSum = withQa.reduce((a, e) => a + (e.qa_result.cer || 0), 0);
       $("statCer").textContent = withQa.length ? fmtPct(cerSum / withQa.length) : "—";
 
-      const aiCalls = (App.live.state && App.live.state.ai && App.live.state.ai.calls) || [];
-      $("statAI").textContent = aiCalls.length ? String(aiCalls.length) : "—";
+      const liveAiCalls = (App.live.state && App.live.state.ai && App.live.state.ai.calls) || [];
+      const usageCalls = (App.live.job && App.live.job.usage && App.live.job.usage.calls) || 0;
+      $("statAI").textContent = (usageCalls || liveAiCalls.length) ? String(usageCalls || liveAiCalls.length) : "—";
 
       // Aside overview card
       const okPct = withQa.length ? ((passed / withQa.length) * 100) : 0;
@@ -1374,6 +1382,8 @@
         qaLine = `<div class="qa-line"><span class="qa-txt">${esc(isLive ? t("processing_now") : (st === "unverified" ? t("audio_no_qa") : t("not_generated")))}</span></div>`;
       }
 
+      const npcClean = cleanWowhead(e.npc_name);
+      const titleClean = cleanWowhead(e.quest_title_de);
       const auditHit = App.audit && (App.audit.results || []).find((r) => r.entry_id === e.entry_id);
       const auditChip = auditHit
         ? `<span class="badge ${auditHit.passed ? "race" : ""}" style="${auditHit.passed ? "" : "background:var(--red-soft);color:var(--red);border:1px solid rgba(255,97,97,0.3);"}">${esc(t(auditHit.passed ? "audit_pass" : "audit_fail"))} ${fmtPct(auditHit.post_fx_cer)} CER</span>`
@@ -1397,7 +1407,7 @@
               <span class="badge zone">${esc(e.zone || "")}${e.subzone ? " — " + esc(e.subzone) : ""}</span>
               ${auditChip}
             </div>
-            <div class="card-title"><span class="npc">${esc(e.npc_name || "NPC")}</span> — ${esc(e.quest_title_de || "Quest " + e.quest_id)} <span class="phase">· ${esc(e.phase || "")}</span></div>
+            <div class="card-title"><span class="npc">${esc(npcClean || "NPC")}</span> — ${esc(titleClean || "Quest " + e.quest_id)} <span class="phase">· ${esc(e.phase || "")}</span></div>
           </div>
           <div>${meta.chip()}</div>
         </div>
