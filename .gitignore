@@ -19,6 +19,7 @@ data/original/
 data/reference_voices/**/*.wav
 data/reference_voices/*.json
 data/raw_de_text/*.json
+data/local/
 
 # Keep folder structure via .gitkeep
 !data/**/.gitkeep

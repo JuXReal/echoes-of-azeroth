@@ -510,6 +510,7 @@ def scrape_missing_pack_quests(
     ai_settings: Optional[Dict] = None,
     en_cache_file: Optional[Path] = None,
     trans_cache_file: Optional[Path] = None,
+    local_names: Optional[Dict[int, Dict[str, str]]] = None,
 ) -> List[Dict]:
     """
     Scrapes German quest texts (Desc, Prog, Comp) from de.wowhead.com for all
@@ -644,6 +645,14 @@ def scrape_missing_pack_quests(
 
         npc_id = qdata.get("start_npc_id", 0) if phase == "Desc" else qdata.get("end_npc_id", 0)
         npc_name = qdata.get("start_npc_name", "NPC") if phase == "Desc" else qdata.get("end_npc_name", "NPC")
+        npc_name_source = "wowhead"
+        # Lokale DB2-Namen bevorzugen (offiziell, kein Scraping)
+        if local_names and npc_id and npc_id in local_names:
+            local_entry = local_names[npc_id]
+            local_name = (local_entry.get("name") or local_entry.get("name2") or "").strip()
+            if local_name:
+                npc_name = local_name
+                npc_name_source = "local_db2"
         meta = KNOWN_NPC_ARCHETYPES.get(npc_id, {})
         race = meta.get("race") or infer_race_from_name_or_zone(npc_name)
         archetype = meta.get("archetype", f"npc_{npc_id}" if npc_id else f"quest_{qid}")
@@ -659,6 +668,7 @@ def scrape_missing_pack_quests(
             "phase": phase,
             "npc_id": npc_id,
             "npc_name": npc_name,
+            "npc_name_source": npc_name_source,
             "race": race,
             "gender": "Neutral",
             "creature_type": "Humanoid",
@@ -803,11 +813,21 @@ def main():
                 ai_settings = None
         except Exception:
             ai_settings = None
+        # Lokale NPC-Namen aus Creature.db2 (reduziert Wowhead-Abhängigkeit)
+        local_names = None
+        try:
+            from pipeline.local_data import load_npc_names
+            local_names = load_npc_names()
+            if local_names:
+                console.print(f"[green]• Lokale NPC-Namen aus Creature.db2 geladen: {len(local_names)}[/green]")
+        except Exception:
+            local_names = None
         scraped = scrape_missing_pack_quests(
             files, vo_dir, durations, all_de_entries, wowhead_cache_file,
             ai_settings=ai_settings,
             en_cache_file=en_cache_file,
             trans_cache_file=trans_cache_file,
+            local_names=local_names,
         )
         console.print(f"• Scraped [bold green]{len(scraped)}[/bold green] additional German quest phases from de.wowhead.com!")
         all_de_entries.extend(scraped)
