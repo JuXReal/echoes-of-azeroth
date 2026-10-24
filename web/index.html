@@ -1150,7 +1150,10 @@
       let total = counts.total || 0;
       let processed = counts.processed || 0;
       const qaCount = App.entries.filter((e) => e.qa_result).length;
-      if (st.step && st.step.key === "qa" && qaCount > processed) {
+      // Fallback nur, wenn die Live-Zähler wirklich hinterherhinken und die
+      // Playlist-Zahl ins Gesamtbild passt (nicht bei Resume-Läufen, wo der
+      // Katalog mehr validierte Einträge enthält als der Lauf abarbeiten muss).
+      if (st.step && st.step.key === "qa" && qaCount > processed && (!total || qaCount <= total)) {
         processed = qaCount;
         if (!total) total = App.entries.length;
       }

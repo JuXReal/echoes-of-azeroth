@@ -241,6 +241,9 @@ def begin_step(key: str, total: int = 0, mode: str = None, expansion: str = None
             "retried": 0,
             "ai_repaired": 0,
         }
+        # ETA-Basis je Schritt zurücksetzen (sonst rechnet ein alter
+        # started_at aus einem früheren Lauf die Rate kaputt)
+        data["started_at"] = time.time()
         data["current"] = None
         data["eta_seconds"] = None
         data["finished_at"] = None
