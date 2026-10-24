@@ -310,6 +310,35 @@ def test_connection(settings: Dict) -> Tuple[bool, str]:
         return False, msg
 
 
+TRANSLATE_SYSTEM_PROMPT = (
+    "Du bist Übersetzer für World-of-Warcraft-Questtexte. Übersetze den folgenden "
+    "englischen Text in natürliches, idiomatisches Deutsch. Eigennamen und Ortsnamen "
+    "beibehalten (z. B. 'Lor'themar', 'Silvermoon', \"Zul'Aman\"). Zahlen ausschreiben "
+    "ist NICHT nötig. Antworte NUR mit der deutschen Übersetzung, ohne Kommentare."
+)
+
+
+def translate_to_german(settings: Dict, text: str) -> Tuple[Optional[str], str, Dict]:
+    """Übersetzt einen englischen Quest-/Gossip-Text ins Deutsche.
+    Returns (translation, note, usage); (None, reason, usage) bei Fehlern."""
+    if not is_available(settings):
+        return None, "ai_disabled", {}
+    try:
+        raw, usage = chat_with_usage(
+            [{"role": "system", "content": TRANSLATE_SYSTEM_PROMPT},
+             {"role": "user", "content": text}],
+            settings,
+        )
+    except Exception as e:
+        return None, f"call_failed: {e}", {}
+    cleaned = re.sub(r"```[a-zA-Z]*\n?", "", raw or "").strip().strip('"').strip()
+    if not cleaned or len(cleaned) < 2:
+        if usage.get("empty_content"):
+            return None, "empty_reply (Reasoning-Modell — Chat-Modell wie 'deepseek-chat' nutzen)", usage
+        return None, "empty_reply", usage
+    return cleaned, "translated", usage
+
+
 def repair_script_with_ai(
     settings: Dict,
     target_text: str,

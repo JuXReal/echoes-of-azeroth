@@ -85,6 +85,7 @@ ai:
   temperature: 0.3
   timeout_sec: 45
   max_tokens: 1500
+  translate_missing_quests: true   # Quests ohne deutschen Wowhead-Text per KI aus dem Englischen übersetzen
   pricing:
     # Estimated USD per 1M tokens for the cost display (OpenRouter's real cost
     # from the API response wins if the provider reports it).

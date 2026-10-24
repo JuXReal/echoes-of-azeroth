@@ -40,7 +40,8 @@ from rich.progress import BarColumn, Progress, SpinnerColumn, TextColumn, TimeEl
 from rich.table import Table
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
-from pipeline.live_state import begin_step, finish_step, increment, update_current
+from pipeline.live_state import begin_step, finish_step, increment, log_ai_call, update_current
+from pipeline.ai_client import get_settings as get_ai_settings, is_available as ai_is_available, translate_to_german
 
 console = Console()
 
@@ -286,7 +287,7 @@ def sanitize_wowhead_text(title: str) -> str:
     return t.strip()[:200]
 
 
-def fetch_wowhead_de_quest_full(quest_id: int) -> Dict:
+def fetch_wowhead_de_quest_full(quest_id: int, domain: str = "www.wowhead.com/de") -> Dict:
     """
     Scrapes a German quest page (`https://www.wowhead.com/de/quest=<id>`) for:
       - title
@@ -308,7 +309,7 @@ def fetch_wowhead_de_quest_full(quest_id: int) -> Dict:
         "end_npc_name": "Unbekannter NPC",
     }
     try:
-        url = f"https://www.wowhead.com/de/quest={quest_id}"
+        url = f"https://{domain}/quest={quest_id}"
         resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64)"}, timeout=8)
         if resp.status_code != 200:
             return result
@@ -506,10 +507,15 @@ def scrape_missing_pack_quests(
     existing_entries: List[Dict],
     cache_file: Path,
     max_workers: int = 12,
+    ai_settings: Optional[Dict] = None,
+    en_cache_file: Optional[Path] = None,
+    trans_cache_file: Optional[Path] = None,
 ) -> List[Dict]:
     """
     Scrapes German quest texts (Desc, Prog, Comp) from de.wowhead.com for all
     `<QuestID>_<Phase>.ogg` files in the expansion pack that aren't in SavedVariables yet.
+    Fehlt der deutsche Text, wird er optional vom englischen Wowhead geholt und
+    per KI ins Deutsche übersetzt (ai_settings + translate_missing_quests).
     """
     existing_keys = {e["target_ogg_filename"] for e in existing_entries}
     quest_files = [f for f in files if re.match(r"^\d+_(Desc|Prog|Comp)\.ogg$", f) and f not in existing_keys]
@@ -558,12 +564,78 @@ def scrape_missing_pack_quests(
 
         cache_file.write_text(json.dumps(cache, indent=2, ensure_ascii=False), encoding="utf-8")
 
+    # --- KI-Übersetzung für Quests ohne deutschen Text ---
+    en_cache: Dict[str, Dict] = {}
+    trans_cache: Dict[str, Dict] = {}
+    translate = bool(ai_settings and ai_is_available(ai_settings) and en_cache_file and trans_cache_file)
+    if translate:
+        for cf in (en_cache_file, trans_cache_file):
+            if cf.exists():
+                try:
+                    if cf == en_cache_file:
+                        en_cache = json.loads(cf.read_text(encoding="utf-8"))
+                    else:
+                        trans_cache = json.loads(cf.read_text(encoding="utf-8"))
+                except Exception:
+                    pass
+        missing_de = [
+            qid for qid in needed_qids
+            if not (cache.get(str(qid)) or {}).get("Desc", "").strip()
+            and not (cache.get(str(qid)) or {}).get("Prog", "").strip()
+            and not (cache.get(str(qid)) or {}).get("Comp", "").strip()
+        ]
+        if missing_de:
+            console.print(f"[magenta]• Übersetze {len(missing_de)} Quests ohne deutschen Text via KI ({ai_settings['provider']})...[/magenta]")
+            for idx, qid in enumerate(missing_de, 1):
+                qid_str = str(qid)
+                if qid_str not in trans_cache:
+                    en = en_cache.get(qid_str)
+                    if en is None:
+                        en = fetch_wowhead_de_quest_full(qid, domain="www.wowhead.com")
+                        en_cache[qid_str] = en
+                    tdata = {"title": None, "Desc": None, "Prog": None, "Comp": None,
+                             "start_npc_id": en.get("start_npc_id", 0), "start_npc_name": en.get("start_npc_name", "NPC"),
+                             "end_npc_id": en.get("end_npc_id", 0), "end_npc_name": en.get("end_npc_name", "NPC")}
+                    title = (en.get("title") or "").strip()
+                    if title and not title.startswith("Quest #"):
+                        t, note, usage = translate_to_german(ai_settings, title)
+                        if t:
+                            tdata["title"] = t
+                            log_ai_call(ai_settings["provider"], ai_settings["model"], f"{qid}_Title", note, ok=True, tokens=usage, cost_usd=usage.get("cost_usd", 0.0))
+                    for phase in ("Desc", "Prog", "Comp"):
+                        txt = (en.get(phase) or "").strip()
+                        if not txt:
+                            continue
+                        t, note, usage = translate_to_german(ai_settings, txt)
+                        if t:
+                            tdata[phase] = t
+                            log_ai_call(ai_settings["provider"], ai_settings["model"], f"{qid}_{phase}", note, ok=True, tokens=usage, cost_usd=usage.get("cost_usd", 0.0))
+                    trans_cache[qid_str] = tdata
+                if idx % 50 == 0 or idx == len(missing_de):
+                    trans_cache_file.write_text(json.dumps(trans_cache, indent=2, ensure_ascii=False), encoding="utf-8")
+                    en_cache_file.write_text(json.dumps(en_cache, indent=2, ensure_ascii=False), encoding="utf-8")
+
     scraped_entries = []
     for fname in quest_files:
         qid_str, phase_ext = fname.split("_", 1)
         qid = int(qid_str)
         phase = phase_ext.replace(".ogg", "")
         qdata = cache.get(qid_str)
+        translated_by_ai = False
+        if (not qdata or not (qdata.get(phase) or "").strip()) and translate:
+            tdata = trans_cache.get(qid_str) or {}
+            if tdata.get(phase):
+                qdata = {
+                    "title": tdata.get("title") or f"Quest #{qid}",
+                    "Desc": tdata.get("Desc") or "",
+                    "Prog": tdata.get("Prog") or "",
+                    "Comp": tdata.get("Comp") or "",
+                    "start_npc_id": tdata.get("start_npc_id", 0),
+                    "start_npc_name": tdata.get("start_npc_name", "NPC"),
+                    "end_npc_id": tdata.get("end_npc_id", 0),
+                    "end_npc_name": tdata.get("end_npc_name", "NPC"),
+                }
+                translated_by_ai = True
         if not qdata:
             continue
         raw_text = (qdata.get(phase) or "").strip()
@@ -579,7 +651,7 @@ def scrape_missing_pack_quests(
         if not spoken_text:
             continue
 
-        scraped_entries.append({
+        entry = {
             "entry_id": f"{qid}_{phase}",
             "kind": "quest",
             "quest_id": qid,
@@ -602,7 +674,10 @@ def scrape_missing_pack_quests(
             "raw_de_text": raw_text,
             "clean_de_text": spoken_text,
             "stage_directions": stage_cues,
-        })
+        }
+        if translated_by_ai:
+            entry["translated_by_ai"] = True
+        scraped_entries.append(entry)
 
     return scraped_entries
 
@@ -612,7 +687,7 @@ def fetch_wowhead_de_quest_title(quest_id: int, cache: Dict[int, str]) -> str:
     if quest_id in cache:
         return cache[quest_id]
     try:
-        url = f"https://www.wowhead.com/de/quest={quest_id}"
+        url = f"https://{domain}/quest={quest_id}"
         resp = requests.get(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=6)
         if resp.status_code == 200:
             soup = BeautifulSoup(resp.text, "lxml")
@@ -720,7 +795,20 @@ def main():
     # Optional: Scrape all remaining expansion quests from de.wowhead.com
     if args.scrape_all_quests:
         wowhead_cache_file = raw_de_dir / f"wowhead_{expansion.lower()}_quests_cache.json"
-        scraped = scrape_missing_pack_quests(files, vo_dir, durations, all_de_entries, wowhead_cache_file)
+        en_cache_file = raw_de_dir / f"wowhead_{expansion.lower()}_quests_en_cache.json"
+        trans_cache_file = raw_de_dir / f"quest_translations_{expansion.lower()}_cache.json"
+        try:
+            ai_settings = get_ai_settings(cfg)
+            if not (cfg.get("ai", {}).get("translate_missing_quests", True)):
+                ai_settings = None
+        except Exception:
+            ai_settings = None
+        scraped = scrape_missing_pack_quests(
+            files, vo_dir, durations, all_de_entries, wowhead_cache_file,
+            ai_settings=ai_settings,
+            en_cache_file=en_cache_file,
+            trans_cache_file=trans_cache_file,
+        )
         console.print(f"• Scraped [bold green]{len(scraped)}[/bold green] additional German quest phases from de.wowhead.com!")
         all_de_entries.extend(scraped)
 
