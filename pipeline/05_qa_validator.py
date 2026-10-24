@@ -299,6 +299,7 @@ def main():
     parser = argparse.ArgumentParser(description="Step 5: Faster-Whisper-QA + optionale KI-Reparatur.")
     parser.add_argument("--config", default="config.yaml", help="Path to config.yaml")
     parser.add_argument("--entry-id", default=None, help="Validate only a single entry_id (used by regenerate_single.sh)")
+    parser.add_argument("--only-failed", action="store_true", help="Nur Einträge mit fehlgeschlagener QA erneut validieren")
     parser.add_argument("--resume", action="store_true", help="Einträge mit bestandener QA überspringen (Fortsetzen nach Unterbrechung)")
     parser.add_argument("--max-retries", type=int, default=None, help="Gesamtzahl der Verbesserungsversuche (überschreibt config)")
     parser.add_argument("--ai-trigger", type=int, default=None, help="KI-Einsatz nach N Fehlversuchen (überschreibt config)")
@@ -337,6 +338,13 @@ def main():
         console.print(f"[cyan]• Resume: {len(skipped)} bestandene Einträge übersprungen, {len(entries)} zu validieren.[/cyan]")
         if not entries:
             console.print("[green]✓ Alle Einträge sind bereits validiert — nichts zu tun.[/green]")
+            return
+    if args.only_failed:
+        failed = [e for e in entries if (e.get("qa_result") or {}).get("passed") is False]
+        console.print(f"[cyan]• Nur Fails: {len(failed)} Einträge werden repariert.[/cyan]")
+        entries = failed
+        if not entries:
+            console.print("[green]✓ Keine fehlgeschlagenen Einträge vorhanden — alles bestanden.[/green]")
             return
 
     # --- AI repair configuration (keys only ever come from .env) ---

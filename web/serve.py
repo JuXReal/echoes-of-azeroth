@@ -444,6 +444,13 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
                 # Nur die Addon-Pakete neu bauen + in WoW installieren (Schritt 6)
                 cmds = [[py, "pipeline/06_audio_fx.py", "--install-to-wow", "--skip-audit"]]
                 mode_label = f"{mode} ({len(expansions)} Addons)"
+            elif mode == "repair_failed":
+                # Fehlgeschlagene Einträge mit bis zu 20 Versuchen reparieren, danach Bundle bauen
+                cmds = [
+                    [py, "pipeline/05_qa_validator.py", "--only-failed", "--max-retries", "20", "--ai-trigger", "3"],
+                    [py, "pipeline/06_audio_fx.py", "--install-to-wow", "--skip-audit"],
+                ]
+                mode_label = f"{mode} ({len(expansions)} Addons)"
             else:
                 for expansion in expansions:
                     if mode == "pilot_20":
