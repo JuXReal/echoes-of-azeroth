@@ -1495,7 +1495,7 @@
               <button class="btn-mini gold" onclick="playAB('${esc(e.entry_id)}')">${esc(t("ab_compare"))}</button>
               <button class="btn-mini blue" onclick="playOnly('${esc(e.entry_id)}')">${esc(t("play_de"))}</button>
               <button class="btn-mini red" ${App.live.effectiveRunning ? "disabled" : ""} onclick="regenerateEntry('${esc(e.entry_id)}')">${esc(t("regen"))}</button>
-              ${(!ok && qa) ? `<button class="btn-mini" style="color:var(--green);border-color:rgba(52,209,123,0.4);" onclick="approveEntry('${esc(e.entry_id)}')">${esc(t("approve"))}</button>` : ""}
+              ${(!ok && qa) ? `<button class="btn-mini" style="color:var(--green);border-color:rgba(52,209,123,0.4);" ${App.live.effectiveRunning ? "disabled" : ""} onclick="approveEntry('${esc(e.entry_id)}')">${esc(t("approve"))}</button>` : ""}
               ${seedFile ? `<a class="btn-mini" href="/audio/seed/${esc(encodeURIComponent(seedFile))}" target="_blank">${esc(t("voice_seed"))}</a>` : ""}
             </div>
           </div>
