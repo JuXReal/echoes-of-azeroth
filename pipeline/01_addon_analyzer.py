@@ -506,7 +506,7 @@ def scrape_missing_pack_quests(
     durations: Dict[str, float],
     existing_entries: List[Dict],
     cache_file: Path,
-    max_workers: int = 12,
+    max_workers: int = 6,  # bewusst moderat (Wowhead-Höflichkeit)
     ai_settings: Optional[Dict] = None,
     en_cache_file: Optional[Path] = None,
     trans_cache_file: Optional[Path] = None,
@@ -530,7 +530,7 @@ def scrape_missing_pack_quests(
 
     to_fetch = [qid for qid in needed_qids if str(qid) not in cache]
     if to_fetch:
-        console.print(f"[cyan]• Scraping {len(to_fetch)} missing quests from de.wowhead.com ({max_workers} threads)...[/cyan]")
+        console.print(f"[cyan]• Scraping {len(to_fetch)} missing quests from de.wowhead.com ({max_workers} threads, gecacht)...[/cyan]")
         begin_step("analyze", total=len(to_fetch))
         with Progress(
             SpinnerColumn(),
