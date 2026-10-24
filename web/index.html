@@ -557,6 +557,7 @@
         </select>
         <button class="btn gold" id="startJobBtn" onclick="startJob()" data-i18n="start"></button>
         <button class="btn ghost" onclick="toggleConsole()" id="consoleToggleBtn" data-i18n="console"></button>
+        <button class="btn ghost" id="consoleCopyBtn" onclick="copyConsole()" data-i18n="console_copy" style="display:none;"></button>
       </div>
       <pre class="console" id="jobConsole"></pre>
     </section>
@@ -687,7 +688,7 @@
         mode_auditfull: "Vollständiger Audit aller gemasterten Dateien",
         mode_pilot: "20-Quest Benchmark-Pilot + Audit",
         mode_full: "Vollständige Expansion (Quests + Gossip + Audit)",
-        start: "▶ Start", console: "Konsole", console_hide: "Konsole ausblenden",
+        start: "▶ Start", console: "Konsole", console_hide: "Konsole ausblenden", console_copy: "Kopieren", console_copied: "Konsole kopiert ✓",
         search_ph: "Suche: Quest-ID, Titel, NPC oder Text …",
         all_speakers: "Alle Sprecher", all_races: "Alle Rassen / FX",
         sort_file: "Sortierung: Datei", sort_cer: "Sortierung: Schlechtestes CER zuerst", sort_title: "Sortierung: Titel",
@@ -762,7 +763,7 @@
         mode_auditfull: "Full audit of all mastered files",
         mode_pilot: "20-quest benchmark pilot + audit",
         mode_full: "Full expansion (quests + gossip + audit)",
-        start: "▶ Start", console: "Console", console_hide: "Hide console",
+        start: "▶ Start", console: "Console", console_hide: "Hide console", console_copy: "Copy", console_copied: "Console copied ✓",
         search_ph: "Search: quest ID, title, NPC or text …",
         all_speakers: "All speakers", all_races: "All races / FX",
         sort_file: "Sort: file", sort_cer: "Sort: worst CER first", sort_title: "Sort: title",
@@ -1545,9 +1546,37 @@
       const show = con.style.display === "none" || !con.style.display;
       con.style.display = show ? "block" : "none";
       $("consoleToggleBtn").textContent = show ? t("console_hide") : t("console");
+      $("consoleCopyBtn").style.display = show ? "" : "none";
       if (show) con.scrollTop = con.scrollHeight;
     }
-    function showConsole() { $("jobConsole").style.display = "block"; $("consoleToggleBtn").textContent = t("console_hide"); }
+    function showConsole() {
+      $("jobConsole").style.display = "block";
+      $("consoleToggleBtn").textContent = t("console_hide");
+      $("consoleCopyBtn").style.display = "";
+    }
+
+    async function copyConsole() {
+      const text = $("jobConsole").textContent || "";
+      const done = () => toast(t("console_copied"), "ok");
+      try {
+        await navigator.clipboard.writeText(text);
+        done();
+      } catch (e) {
+        const ta = document.createElement("textarea");
+        ta.value = text;
+        ta.style.position = "fixed";
+        ta.style.opacity = "0";
+        document.body.appendChild(ta);
+        ta.select();
+        try {
+          document.execCommand("copy");
+          done();
+        } catch (e2) {
+          toast(`${t("error")}: clipboard`, "err");
+        }
+        ta.remove();
+      }
+    }
 
     /* ---------- audit card ---------- */
     function renderAudit() {

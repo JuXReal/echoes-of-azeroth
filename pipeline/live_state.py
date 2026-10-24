@@ -89,7 +89,7 @@ def add_usage(prompt_tokens: int = 0, completion_tokens: int = 0, cost_usd: floa
         data["cost_usd"] = round(float(data["cost_usd"]) + float(cost_usd), 6)
         path = usage_file()
         path.parent.mkdir(parents=True, exist_ok=True)
-        tmp = path.with_suffix(path.suffix + ".tmp")
+        tmp = path.with_name(f"{path.name}.{os.getpid()}.{time.time_ns()}.tmp")
         with open(tmp, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False)
         tmp.replace(path)
@@ -151,10 +151,18 @@ def _deep_merge(base: dict, patch: dict) -> dict:
 def _write(data: dict, path: Path = None) -> None:
     path = path or state_file()
     path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    with open(tmp, "w", encoding="utf-8") as f:
-        json.dump(data, f, ensure_ascii=False)
-    tmp.replace(path)
+    # Eindeutiger Temp-Name: mehrere Prozesse (Pipeline + Watcher) schreiben
+    # parallel — ein geteilter .tmp-Name führt sonst zu Replace-Crashes.
+    tmp = path.with_name(f"{path.name}.{os.getpid()}.{time.time_ns()}.tmp")
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+        tmp.replace(path)
+    finally:
+        try:
+            tmp.unlink()
+        except OSError:
+            pass
 
 
 def _compute_eta(data: dict) -> None:
