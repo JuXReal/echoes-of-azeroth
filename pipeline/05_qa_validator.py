@@ -299,6 +299,7 @@ def main():
     parser = argparse.ArgumentParser(description="Step 5: Faster-Whisper-QA + optionale KI-Reparatur.")
     parser.add_argument("--config", default="config.yaml", help="Path to config.yaml")
     parser.add_argument("--entry-id", default=None, help="Validate only a single entry_id (used by regenerate_single.sh)")
+    parser.add_argument("--resume", action="store_true", help="Einträge mit bestandener QA überspringen (Fortsetzen nach Unterbrechung)")
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parent.parent
@@ -319,6 +320,19 @@ def main():
         entries = [e for e in entries if e["entry_id"] == args.entry_id]
         if not entries:
             console.print(f"[red]Error: No entry with entry_id '{args.entry_id}' found in {pilot_path.name}[/red]")
+            return
+    if args.resume:
+        def _already_ok(e: Dict) -> bool:
+            qa = e.get("qa_result") or {}
+            if not qa.get("passed"):
+                return False
+            wav = e.get("raw_tts_wav")
+            return bool(wav) and Path(wav).exists()
+        skipped = [e for e in entries if _already_ok(e)]
+        entries = [e for e in entries if not _already_ok(e)]
+        console.print(f"[cyan]• Resume: {len(skipped)} bestandene Einträge übersprungen, {len(entries)} zu validieren.[/cyan]")
+        if not entries:
+            console.print("[green]✓ Alle Einträge sind bereits validiert — nichts zu tun.[/green]")
             return
 
     # --- AI repair configuration (keys only ever come from .env) ---
