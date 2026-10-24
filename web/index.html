@@ -1070,22 +1070,32 @@
     function renderExpansions() {
       const expStatus = (App.live.job && App.live.job.expansion_status) || {};
       const current = currentExpansion();
+      const liveCounts = (App.live.state && App.live.state.counts) || {};
+      const liveStep = (App.live.state && App.live.state.step) || null;
       const stepLabels = { analyze: t("step1"), voices: t("step2"), script: t("step3"), tts: t("step4"), qa: t("step5"), fx: t("step6"), audit: t("step7") };
       $("expansionsRows").innerHTML = EXPANSION_NAMES.map((name) => {
         const s = expStatus[name];
         const disp = name.replace(/_/g, " ");
-        if (!s) {
-          return `<div class="ov-row"><span class="l">${esc(disp)}</span><span class="v" style="color:var(--text-3)">—</span></div>`;
-        }
-        if (s.finished) {
-          return `<div class="ov-row"><span class="l">${esc(disp)}</span><span class="v" style="color:var(--green)">✓ ${esc(t("exp_finished"))} · ${esc(stepLabels[s.step] || s.step || "")}</span></div>`;
-        }
         if (name === current) {
-          const c = s.counts || {};
-          const qaTxt = s.step === "qa" && c.total ? ` ${c.passed || 0}/${c.total} ✓` : "";
-          return `<div class="ov-row"><span class="l">${esc(disp)}</span><span class="v" style="color:var(--gold)">▶ ${esc(stepLabels[s.step] || s.step || "")}${qaTxt}</span></div>`;
+          // Läuft gerade: Live-Daten aus dem laufenden Job
+          const stepLbl = liveStep ? (stepLabels[liveStep.key] || liveStep.label || liveStep.key) : "…";
+          const p = liveCounts.processed || 0;
+          const tot = liveCounts.total || App.entries.length || 0;
+          const prog = tot ? ` · ${p}/${tot}` : "";
+          const qaTxt = (liveStep && liveStep.key === "qa")
+            ? ` · ${liveCounts.passed || 0}✓ ${liveCounts.failed || 0}✕`
+            : "";
+          return `<div class="ov-row"><span class="l">${esc(disp)}</span><span class="v" style="color:var(--gold)">▶ ${esc(stepLbl)}${prog}${qaTxt}</span></div>`;
         }
-        return `<div class="ov-row"><span class="l">${esc(disp)}</span><span class="v">${esc(stepLabels[s.step] || s.step || "")} ✓ ${esc(t("exp_stopped"))}</span></div>`;
+        if (s && s.finished) {
+          const c = s.counts || {};
+          const nums = c.total ? ` · ${c.passed || 0}✓ ${c.failed || 0}✕` : "";
+          return `<div class="ov-row"><span class="l">${esc(disp)}</span><span class="v" style="color:var(--green)">✓ ${esc(t("exp_finished"))} · ${esc(stepLabels[s.step] || s.step || "")}${nums}</span></div>`;
+        }
+        if (s) {
+          return `<div class="ov-row"><span class="l">${esc(disp)}</span><span class="v">${esc(stepLabels[s.step] || s.step || "")} ✓ ${esc(t("exp_stopped"))}</span></div>`;
+        }
+        return `<div class="ov-row"><span class="l">${esc(disp)}</span><span class="v" style="color:var(--text-3)">—</span></div>`;
       }).join("");
     }
 
