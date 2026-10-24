@@ -451,6 +451,12 @@ class CASCClient:
         self.root_names = names
         self.root_fids = fids
 
+        # Lokale TACT-Keys aus TactKey.db2 + TactKeyLookup.db2 (vollständig, offline)
+        try:
+            self._load_local_tact_keys()
+        except Exception as e:
+            print(f"  Hinweis: lokale TACT-Keys nicht ladbar ({e})")
+
     def _read_build_info(self) -> Dict[str, str]:
         bi = self.wow_dir / ".build.info"
         lines = bi.read_text(encoding="utf-8").splitlines()
@@ -543,6 +549,33 @@ class CASCClient:
         return entry[1], entry[2]
 
     # ---- Name -> Inhalt ----
+    def _load_local_tact_keys(self) -> None:
+        """Liest TACT-Keys aus den lokalen DB2-Dateien (TactKey + TactKeyLookup)."""
+        from pipeline.db2_reader import read_db2
+
+        lookup_reader = read_db2(self, "dbfilesclient/tactkeylookup.db2")
+        key_reader = read_db2(self, "dbfilesclient/tactkey.db2")
+
+        # TactKey: ID (aus idList) -> 16-Byte-Key
+        key_by_id = {}
+        for ids in key_reader.id_lists:
+            for local_i, rid in enumerate(ids):
+                rec = key_reader.get_record_bytes(local_i)
+                if rec is not None:
+                    key_by_id[rid] = bytes(rec[:16])
+
+        # TactKeyLookup: ID (aus idList) -> 8-Byte-Lookup-Name; Join über ID
+        for ids in lookup_reader.id_lists:
+            for local_i, rid in enumerate(ids):
+                if rid not in key_by_id:
+                    continue
+                rec = lookup_reader.get_record_bytes(local_i)
+                if rec is None:
+                    continue
+                name_bytes = bytes(rec[:8])
+                self.keys[name_bytes.hex()] = key_by_id[rid]
+                self.keys[name_bytes[::-1].hex()] = key_by_id[rid]
+
     def _ensure_tact_keys(self) -> Dict[str, bytes]:
         """Öffentliche TACT-Schlüssel (wowdev/TACTKeys), einmalig gecacht."""
         if not self._tact_keys:

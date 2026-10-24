@@ -100,6 +100,7 @@ class WDC5Reader:
 
         # String-Tabelle über alle Sektionen aufbauen (delta-basiert)
         self.string_table: Dict[int, str] = {}
+        self.id_lists: List[List[int]] = []
         self._total_record_data_size = 0
         for s in self.sections:
             if self.is_normal:
@@ -109,6 +110,7 @@ class WDC5Reader:
         delta = 0
         for s in self.sections:
             if not self.is_normal:
+                self.id_lists.append([])
                 continue
             st_start = s["file_offset"] + self.record_size * s["record_count"]
             st_end = st_start + s["string_table_size"]
@@ -120,6 +122,11 @@ class WDC5Reader:
                         self.string_table[start - st_start + delta] = buf[start:p].decode("utf-8", errors="replace")
                     start = p + 1
                 p += 1
+            # ID-Liste nach der String-Tabelle
+            ids = []
+            for j in range(s["id_list_size"] // 4):
+                ids.append(struct.unpack_from("<I", buf, st_end + j * 4)[0])
+            self.id_lists.append(ids)
             delta += s["string_table_size"]
 
     # ---- Bit-Reader ----
