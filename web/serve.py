@@ -657,7 +657,7 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
 
         if path == "/api/job_status":
             with JOB_LOCK:
-                job = dict(CURRENT_JOB)
+                job = {k: v for k, v in CURRENT_JOB.items() if k != "proc"}
                 job["logs"] = list(job.get("logs", []))[-400:]
             job["state"] = load_live_state()
             self._send_json(job)
