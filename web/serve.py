@@ -229,10 +229,13 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
 
         ctype, _ = mimetypes.guess_type(str(file_path))
         is_html = False
+        is_audio = False
         if file_path.suffix.lower() == ".ogg":
             ctype = "audio/ogg"
+            is_audio = True
         elif file_path.suffix.lower() == ".wav":
             ctype = "audio/wav"
+            is_audio = True
         elif file_path.suffix.lower() == ".html":
             ctype = "text/html; charset=utf-8"
             is_html = True
@@ -250,7 +253,7 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
 
                 self.send_response(206)
                 self.send_header("Content-Type", ctype or "application/octet-stream")
-                if is_html:
+                if is_html or is_audio:
                     self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
                 self.send_header("Content-Range", f"bytes {start}-{end}/{size}")
                 self.send_header("Content-Length", str(length))
@@ -266,7 +269,7 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
 
         self.send_response(200)
         self.send_header("Content-Type", ctype or "application/octet-stream")
-        if is_html:
+        if is_html or is_audio:
             self.send_header("Cache-Control", "no-cache, no-store, must-revalidate")
         self.send_header("Content-Length", str(size))
         self.send_header("Accept-Ranges", "bytes")

@@ -1460,7 +1460,7 @@
             </div>
             <div class="player-row">
               <div class="lang-tag"><span class="main">${esc(t("en_original"))}</span><span class="sub">${e.source_duration_sec || "?"}s · ${esc(e.kind === "gossip" ? t("en_gossip_ref") : t("reference"))}</span></div>
-              <audio controls preload="none" src="/audio/en/${esc(encodeURIComponent(e.source_ogg_filename))}"></audio>
+              <audio class="en-audio" controls preload="none" src="/audio/en/${esc(encodeURIComponent(e.source_ogg_filename))}"></audio>
             </div>
             <div class="card-actions">
               <button class="btn-mini gold" onclick="playAB('${esc(e.entry_id)}')">${esc(t("ab_compare"))}</button>
@@ -1504,7 +1504,7 @@
       stopAllAudio();
       const card = document.querySelector(`#card-${CSS.escape(id)}`);
       const de = card ? card.querySelector("audio.de-audio") : null;
-      const en = card ? Array.from(card.querySelectorAll("audio")).find((a) => !a.classList.contains("de-audio")) : null;
+      const en = card ? card.querySelector("audio.en-audio") : null;
       if (!en || !de) return;
       en.play().then(() => {}).catch(() => {});
       en.onended = () => setTimeout(() => de.play().catch(() => {}), 350);
