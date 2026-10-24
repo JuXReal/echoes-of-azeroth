@@ -131,6 +131,16 @@ def write_env_settings(project_root: Path, updates: dict) -> None:
     tmp.replace(path)
 
 
+
+def update_config_yaml(project_root: Path, qa_retries: int) -> None:
+    """Schreibt max_retries in config.yaml (gezielte Zeilenersetzung, Kommentare bleiben)."""
+    import re as _re
+    cfg_path = project_root / "config.yaml"
+    text = cfg_path.read_text(encoding="utf-8")
+    text = _re.sub(r"(\n  max_retries: )\d+", rf"\g<1>{int(qa_retries)}", text, count=1)
+    cfg_path.write_text(text, encoding="utf-8")
+
+
 def _run_background_commands(commands: list, project_root: Path, mode: str, expansion: str):
     global CURRENT_JOB
     env = os.environ.copy()
@@ -210,6 +220,10 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
     def _safe_ai_settings(self) -> dict:
         """AI settings WITHOUT the API key — safe to send to the browser."""
         settings = get_ai_settings(self.cfg)
+        try:
+            qa_retries = int((self.cfg.get("qa_validation") or {}).get("max_retries", 3))
+        except (TypeError, ValueError):
+            qa_retries = 3
         return {
             "provider": settings["provider"],
             "model": settings["model"],
@@ -222,6 +236,7 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
             "api_key_set": bool(settings["api_key"]),
             "providers": PROVIDERS,
             "pricing": settings.get("pricing", {}),
+            "qa_retries": qa_retries,
         }
 
     def _send_json(self, data: dict, status: int = 200):
@@ -310,7 +325,9 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
                     return
 
             script = str(self.project_root / "pipeline" / "regenerate_single.sh")
-            cmds = [["bash", script, str(entry_id)]]
+            retries = body.get("retries") or body.get("qa_retries") or 3
+            ai_trigger = body.get("ai_trigger") or body.get("trigger_after_failures") or 3
+            cmds = [["bash", script, str(entry_id), str(int(retries)), str(int(ai_trigger))]]
 
             t = threading.Thread(
                 target=_run_background_commands,
@@ -348,6 +365,14 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
             # API key: only stored if a non-empty value is submitted; NEVER returned
             if body.get("api_key"):
                 updates["AI_API_KEY"] = str(body["api_key"]).strip()
+
+            if body.get("qa_retries") is not None:
+                try:
+                    qa_retries = max(1, min(10, int(body.get("qa_retries"))))
+                except (TypeError, ValueError):
+                    self._send_json({"error": "qa_retries must be an integer 1-10"}, status=400)
+                    return
+                update_config_yaml(self.project_root, qa_retries)
 
             write_env_settings(self.project_root, updates)
             # Apply to this process so subsequently spawned pipeline jobs inherit it
@@ -415,6 +440,10 @@ class ABComparisonHandler(BaseHTTPRequestHandler):
                 sample = "100" if mode == "audit_100" else "0"
                 cmds = [[py, "pipeline/07_independent_audit_100.py", "--sample-size", sample]]
                 mode_label = f"{mode} ({expansions[0]})"
+            elif mode == "rebuild_bundle":
+                # Nur die Addon-Pakete neu bauen + in WoW installieren (Schritt 6)
+                cmds = [[py, "pipeline/06_audio_fx.py", "--install-to-wow", "--skip-audit"]]
+                mode_label = f"{mode} ({len(expansions)} Addons)"
             else:
                 for expansion in expansions:
                     if mode == "pilot_20":

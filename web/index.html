@@ -550,6 +550,7 @@
           <option value="audit_full" data-i18n="mode_auditfull"></option>
           <option value="pilot_20" data-i18n="mode_pilot"></option>
           <option value="full_expansion" data-i18n="mode_full"></option>
+          <option value="rebuild_bundle" data-i18n="mode_rebundle"></option>
         </select>
         <button class="btn gold" id="startJobBtn" onclick="startJob()" data-i18n="start"></button>
         <button class="btn ghost" onclick="toggleConsole()" id="consoleToggleBtn" data-i18n="console"></button>
@@ -620,13 +621,17 @@
             </div>
             <div class="form-row">
               <div class="field">
+                <label for="aiRetries" data-i18n="ai_retries"></label>
+                <input type="text" id="aiRetries" inputmode="numeric" value="3" />
+              </div>
+              <div class="field">
                 <label for="aiTrigger" data-i18n="ai_trigger"></label>
                 <input type="text" id="aiTrigger" inputmode="numeric" value="3" />
               </div>
-              <div class="field">
-                <label for="aiKey" data-i18n="ai_key"></label>
-                <input type="password" id="aiKey" placeholder="••••••••" autocomplete="off" />
-              </div>
+            </div>
+            <div class="field">
+              <label for="aiKey" data-i18n="ai_key"></label>
+              <input type="password" id="aiKey" placeholder="••••••••" autocomplete="off" />
             </div>
             <div class="key-hint" id="aiKeyHint"></div>
             <div class="form-row">
@@ -686,6 +691,7 @@
         mode_auditfull: "Vollständiger Audit aller gemasterten Dateien",
         mode_pilot: "20-Quest Benchmark-Pilot + Audit",
         mode_full: "Vollständige Expansion (Quests + Gossip + Audit)",
+        mode_rebundle: "Bundle neu machen (nur Schritt 6: Pakete bauen + installieren)",
         start: "▶ Start", console: "Konsole", console_hide: "Konsole ausblenden", console_copy: "Kopieren", console_copied: "Konsole kopiert ✓",
         search_ph: "Suche: Quest-ID, Titel, NPC oder Text …",
         all_speakers: "Alle Sprecher", all_races: "Alle Rassen / FX",
@@ -712,7 +718,7 @@
         ai_provider_hint: "Optional: Ohne Provider läuft die Pipeline trotzdem — fehlgeschlagene Zeilen werden dann nur nicht KI-repariert.",
         ai_model: "Modell", ai_models_load: "Modelle laden", ai_models_loading: "Lade …",
         ai_model_custom: "Eigene Modell-ID …", ai_baseurl: "Base-URL (optional)", ai_baseurl_ph: "Standard des Providers",
-        ai_trigger: "Einsatz nach", ai_key: "API-Key",
+        ai_trigger: "Einsatz nach", ai_retries: "Max. Versuche gesamt", ai_key: "API-Key",
         key_set: "Key gespeichert: liegt lokal in der git-ignorierten <code>.env</code> — nie auf GitHub.",
         key_unset: "Kein Key gesetzt. Keys werden ausschließlich in die git-ignorierte <code>.env</code> geschrieben.",
         save: "Speichern", ai_test: "Verbindung testen",
@@ -763,6 +769,7 @@
         mode_auditfull: "Full audit of all mastered files",
         mode_pilot: "20-quest benchmark pilot + audit",
         mode_full: "Full expansion (quests + gossip + audit)",
+        mode_rebundle: "Rebuild bundle (step 6 only: build + install packs)",
         start: "▶ Start", console: "Console", console_hide: "Hide console", console_copy: "Copy", console_copied: "Console copied ✓",
         search_ph: "Search: quest ID, title, NPC or text …",
         all_speakers: "All speakers", all_races: "All races / FX",
@@ -789,7 +796,7 @@
         ai_provider_hint: "Optional: the pipeline works without a provider — failed lines simply won't be AI-repaired.",
         ai_model: "Model", ai_models_load: "Load models", ai_models_loading: "Loading …",
         ai_model_custom: "Custom model ID …", ai_baseurl: "Base URL (optional)", ai_baseurl_ph: "Provider default",
-        ai_trigger: "Use after", ai_key: "API Key",
+        ai_trigger: "Use after", ai_retries: "Max total attempts", ai_key: "API Key",
         key_set: "Key stored: lives only in the git-ignored <code>.env</code> — never on GitHub.",
         key_unset: "No key set. Keys are written exclusively to the git-ignored <code>.env</code>.",
         save: "Save", ai_test: "Test connection",
@@ -1611,7 +1618,11 @@
         await api("/api/regenerate_entry", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ entry_id: id }),
+          body: JSON.stringify({
+            entry_id: id,
+            retries: parseInt($("aiRetries").value, 10) || 3,
+            ai_trigger: parseInt($("aiTrigger").value, 10) || 3,
+          }),
         });
         toast(`${id}: ${t("regen_started")}`, "gold");
       } catch (err) {
@@ -1741,6 +1752,7 @@
       setModelSelect(modelList, s.model || defaults.default_model || "");
       $("aiBaseUrl").value = s.base_url || "";
       $("aiTrigger").value = s.trigger_after_failures || 3;
+      $("aiRetries").value = s.qa_retries || 3;
       $("aiKey").value = "";
       $("aiKey").placeholder = s.api_key_set ? "••••••••" : "••••••••";
       $("aiKeyHint").innerHTML = s.api_key_set ? t("key_set") : t("key_unset");
@@ -1755,6 +1767,7 @@
         base_url: $("aiBaseUrl").value.trim(),
         enabled: $("aiEnabled").checked,
         trigger_after_failures: parseInt($("aiTrigger").value, 10) || 3,
+        qa_retries: parseInt($("aiRetries").value, 10) || 3,
       };
       const key = $("aiKey").value.trim();
       if (key) body.api_key = key;

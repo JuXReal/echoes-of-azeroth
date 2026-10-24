@@ -300,6 +300,8 @@ def main():
     parser.add_argument("--config", default="config.yaml", help="Path to config.yaml")
     parser.add_argument("--entry-id", default=None, help="Validate only a single entry_id (used by regenerate_single.sh)")
     parser.add_argument("--resume", action="store_true", help="Einträge mit bestandener QA überspringen (Fortsetzen nach Unterbrechung)")
+    parser.add_argument("--max-retries", type=int, default=None, help="Gesamtzahl der Verbesserungsversuche (überschreibt config)")
+    parser.add_argument("--ai-trigger", type=int, default=None, help="KI-Einsatz nach N Fehlversuchen (überschreibt config)")
     args = parser.parse_args()
 
     project_root = Path(__file__).resolve().parent.parent
@@ -309,6 +311,8 @@ def main():
     qa_cfg = cfg["qa_validation"]
     threshold = float(qa_cfg.get("max_wer_threshold", 0.15))
     max_retries = int(qa_cfg.get("max_retries", 3))
+    if args.max_retries is not None:
+        max_retries = max(0, args.max_retries)
 
     pilot_path = project_root / cfg["paths"]["data_raw_de_text"] / "midnight_de_pilot_20.json"
     qa_report_dir = project_root / cfg["paths"]["output_qa_reports"]
@@ -337,6 +341,8 @@ def main():
 
     # --- AI repair configuration (keys only ever come from .env) ---
     ai_settings = get_ai_settings(cfg)
+    if args.ai_trigger is not None:
+        ai_settings["trigger_after_failures"] = max(1, args.ai_trigger)
     ai_ok = ai_is_available(ai_settings)
     set_ai_config(
         enabled=ai_ok,
