@@ -702,7 +702,7 @@
         processing_now: "wird gerade verarbeitet …", audio_no_qa: "Audio vorhanden — QA steht aus", not_generated: "noch nicht generiert",
         script: "Script", phonetics: "Phonetik", standard_phonetics: "Standard-Phonetik", direction: "Regie", whisper: "Whisper",
         de_mastered: "DE Lokalisiert", en_original: "EN Original", raw_unmastered: "RAW Ungemastert",
-        reference: "Referenz", unmastered_sub: "24 kHz WAV · vor Mastering",
+        reference: "Referenz", en_gossip_ref: "geteilte NPC-Referenz (längste EN-Zeile)", unmastered_sub: "24 kHz WAV · vor Mastering",
         ab_compare: "A/B vergleichen", play_de: "▶ DE", regen: "↻ Neu generieren", voice_seed: "Voice-Seed",
         not_rendered: "Noch nicht gerendert (Schritt 6)",
         ov_total: "Gesamt-Quests", ov_validated: "Validierte Quests", ov_passed: "QA bestanden",
@@ -777,7 +777,7 @@
         processing_now: "being processed right now …", audio_no_qa: "Audio exists — QA pending", not_generated: "not generated yet",
         script: "Script", phonetics: "Phonetics", standard_phonetics: "Standard phonetics", direction: "Direction", whisper: "Whisper",
         de_mastered: "DE Localized", en_original: "EN Original", raw_unmastered: "RAW Unmastered",
-        reference: "Reference", unmastered_sub: "24 kHz WAV · pre-mastering",
+        reference: "Reference", en_gossip_ref: "shared NPC reference (longest EN line)", unmastered_sub: "24 kHz WAV · pre-mastering",
         ab_compare: "A/B compare", play_de: "▶ DE", regen: "↻ Regenerate", voice_seed: "Voice Seed",
         not_rendered: "Not rendered yet (step 6)",
         ov_total: "Total quests", ov_validated: "Validated quests", ov_passed: "QA passed",
@@ -1457,7 +1457,7 @@
                 : `<span class="key-hint" style="margin:auto 0;">${esc(t("not_generated"))}</span>`}
             </div>
             <div class="player-row">
-              <div class="lang-tag"><span class="main">${esc(t("en_original"))}</span><span class="sub">${e.source_duration_sec || "?"}s · ${esc(t("reference"))}</span></div>
+              <div class="lang-tag"><span class="main">${esc(t("en_original"))}</span><span class="sub">${e.source_duration_sec || "?"}s · ${esc(e.kind === "gossip" ? t("en_gossip_ref") : t("reference"))}</span></div>
               <audio controls preload="none" src="/audio/en/${esc(encodeURIComponent(e.source_ogg_filename))}"></audio>
             </div>
             <div class="card-actions">
