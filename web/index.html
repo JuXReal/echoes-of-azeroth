@@ -326,6 +326,9 @@
     .chip-filter:hover { border-color: var(--border-strong); color: var(--text); }
     .chip-filter.on { background: var(--gold-soft); border-color: var(--gold-border); color: var(--gold); }
     .chip-filter .cnt { opacity: 0.65; font-variant-numeric: tabular-nums; }
+    .chip-exp.on { background: var(--green-soft); border-color: rgba(52,209,123,0.55); color: var(--green); }
+    .chip-exp:not(.on) { background: var(--red-soft); border-color: rgba(255,87,87,0.45); color: var(--red); opacity: 0.85; }
+    .chip-exp:not(.on):hover { border-color: var(--red); color: var(--red); opacity: 1; }
 
     /* ---------- Cards ---------- */
     .grid { display: flex; flex-direction: column; gap: 0.85rem; }
@@ -1590,7 +1593,7 @@
       const host = $("expansionChips");
       host.innerHTML = App.expansions.map((e) => {
         const on = App.selectedExpansions.has(e.id);
-        return `<button class="chip-filter ${on ? "on" : ""}" data-exp="${esc(e.id)}">${esc(e.name)}</button>`;
+        return `<button class="chip-filter chip-exp ${on ? "on" : ""}" data-exp="${esc(e.id)}">${on ? "✓ " : "✕ "}${esc(e.name)}</button>`;
       }).join("");
       host.querySelectorAll(".chip-filter").forEach((b) => {
         b.onclick = () => {
