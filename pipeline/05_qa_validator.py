@@ -252,6 +252,8 @@ def evaluate_audio_with_whisper(
     # count as 2 word errors in naive WER despite 99% phonetic accuracy).
     effective_error = round(0.55 * cer_val + 0.45 * wer_val, 4)
 
+    is_halluc, reason = detect_hallucinations(norm_trans_full, norm_target)
+
     return {
         "transcript": transcript,
         "wer": round(wer_val, 4),
