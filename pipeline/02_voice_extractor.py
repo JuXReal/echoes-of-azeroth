@@ -255,6 +255,14 @@ def main():
         # Pick candidate whose duration is closest to 12-25s (ideal for slicing a clean 8.5s window)
         best_cand = None
         best_win = (0.0, 8.0, -1.0)
+        update_current({
+            "entry_id": f"archetype:{arch}",
+            "npc_name": (cand_list[0].get("npc_name") if cand_list else "?"),
+            "quest_title_de": "",
+            "phase": "Archetyp-Seed",
+            "status": "extracting_seed",
+            "cer": None,
+        })
         for c in cand_list:
             ogg_p = Path(c["source_ogg_path"])
             if not ogg_p.exists():
