@@ -1409,6 +1409,7 @@
       const st = entryStatus(e);
       const meta = STATUS_META[st] || STATUS_META.pending;
       const qa = e.qa_result || null;
+      const qaOk = qa ? (qa.passed === true || (qa.passed !== false && qa.cer <= 0.15)) : false;
       const liveCur = App.live.state && App.live.state.current;
       const isLive = App.live.effectiveRunning && liveCur && liveCur.entry_id === e.entry_id;
 
@@ -1416,7 +1417,7 @@
       let qaLine = "";
       if (qa) {
         const match = Math.max(0, Math.min(100, 100 - qa.cer * 100));
-        const ok = qa.passed === true || (qa.passed !== false && qa.cer <= 0.15);
+        const ok = qaOk;
         const barColor = ok ? "var(--green)" : "var(--red)";
         const approvedBadge = qa.approved_by_user
           ? `<span class="badge" style="background:var(--green-soft);color:var(--green);border:1px solid rgba(52,209,123,0.35);">${esc(t("approved_by_ear"))}</span>`
@@ -1503,7 +1504,7 @@
               <button class="btn-mini gold" onclick="playAB('${esc(e.entry_id)}')">${esc(t("ab_compare"))}</button>
               <button class="btn-mini blue" onclick="playOnly('${esc(e.entry_id)}')">${esc(t("play_de"))}</button>
               <button class="btn-mini red" ${App.live.effectiveRunning ? "disabled" : ""} onclick="regenerateEntry('${esc(e.entry_id)}')">${esc(t("regen"))}</button>
-              ${(!ok && qa) ? `<button class="btn-mini" style="color:var(--green);border-color:rgba(52,209,123,0.4);" ${App.live.effectiveRunning ? "disabled" : ""} onclick="approveEntry('${esc(e.entry_id)}')">${esc(t("approve"))}</button>` : ""}
+              ${(!qaOk && qa) ? `<button class="btn-mini" style="color:var(--green);border-color:rgba(52,209,123,0.4);" ${App.live.effectiveRunning ? "disabled" : ""} onclick="approveEntry('${esc(e.entry_id)}')">${esc(t("approve"))}</button>` : ""}
               ${seedFile ? `<a class="btn-mini" href="/audio/seed/${esc(encodeURIComponent(seedFile))}" target="_blank">${esc(t("voice_seed"))}</a>` : ""}
             </div>
           </div>
