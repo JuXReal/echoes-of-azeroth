@@ -302,7 +302,11 @@ def _record_expansion_status(data: dict) -> None:
         entry["step"] = step.get("key")
         entry["step_done"] = bool(step.get("done"))
         entry["updated_at"] = time.time()
-        entry["counts"] = dict(data.get("counts") or {})
+        # QA-Zahlen dauerhaft behalten (Audit-Zähler überschreiben sie nicht)
+        entry["step_counts"] = entry.get("step_counts") or {}
+        entry["step_counts"][step.get("key") or "?"] = dict(data.get("counts") or {})
+        if step.get("key") == "qa":
+            entry["counts"] = dict(data.get("counts") or {})
         entry["finished"] = bool(entry.get("finished") or (step.get("key") == "audit" and step.get("done")))
         _write(status, expansion_status_file())
     except Exception:
